@@ -7,7 +7,8 @@ export const signUp = async (
   email: string,
   password: string,
   name: string,
-  role: 'customer' | 'provider' | 'admin'
+  role: 'customer' | 'provider' | 'admin',
+  contactNumber?: string
 ) => {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -30,6 +31,7 @@ export const signUp = async (
     email,
     name,
     role,
+    contact_number: contactNumber,
   });
 
   if (insertError) {
@@ -59,7 +61,7 @@ export const signIn = async (email: string, password: string) => {
     throw new Error('Login failed. User not found.');
   }
 
-  return data.user; // ✅ CORRECT
+  return data.user;
 };
 
 /* =========================
@@ -93,7 +95,7 @@ export const getUserRole = async (): Promise<
     .from('users')
     .select('role')
     .eq('id', user.id)
-    .maybeSingle(); // ✅ FIXED
+    .maybeSingle();
 
   if (error || !data) return null;
   return data.role;
@@ -109,7 +111,7 @@ export const getUserRoleById = async (
     .from('users')
     .select('role')
     .eq('id', userId)
-    .maybeSingle(); // ✅ FIXED
+    .maybeSingle();
 
   if (error || !data) {
     throw new Error('User role not found');

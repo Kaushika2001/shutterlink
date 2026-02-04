@@ -1,20 +1,42 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { signUp } from '@/services/auth';
 
 export default function RegisterPage() {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'customer' | 'provider'>('customer');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    contactNumber: '',
+    role: 'customer' as 'customer' | 'provider' | 'admin'
+  });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleRegister = async () => {
+    // Validation
+    if (!formData.name || !formData.email || !formData.password || !formData.contactNumber) {
+      alert('All fields are required');
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
     try {
-      await signUp(email, password, name, role);
-      alert('Registration successful');
+      setLoading(true);
+      await signUp(formData.email, formData.password, formData.name, formData.role, formData.contactNumber);
+      alert('Registration successful! Check your email for confirmation.');
+      router.push('/login');
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -22,23 +44,53 @@ export default function RegisterPage() {
     <div>
       <h2>Register</h2>
 
-      <input placeholder="Name" onChange={e => setName(e.target.value)} />
-      <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
+      <input
+        type="text"
+        placeholder="Full Name"
+        value={formData.name}
+        onChange={e => setFormData({...formData, name: e.target.value})}
+      />
+
+      <input
+        type="email"
+        placeholder="Email"
+        value={formData.email}
+        onChange={e => setFormData({...formData, email: e.target.value})}
+      />
+
+      <input
+        type="tel"
+        placeholder="Contact Number"
+        value={formData.contactNumber}
+        onChange={e => setFormData({...formData, contactNumber: e.target.value})}
+      />
+
       <input
         type="password"
         placeholder="Password"
-        onChange={e => setPassword(e.target.value)}
+        value={formData.password}
+        onChange={e => setFormData({...formData, password: e.target.value})}
       />
 
-      <select onChange={e => setRole(e.target.value as any)}>
+      <input
+        type="password"
+        placeholder="Confirm Password"
+        value={formData.confirmPassword}
+        onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+      />
+
+      <select 
+        value={formData.role}
+        onChange={e => setFormData({...formData, role: e.target.value as any})}
+      >
         <option value="customer">Customer</option>
         <option value="provider">Service Provider</option>
+        <option value="admin">Admin</option>
       </select>
 
-      <button onClick={handleRegister}>Register</button>
+      <button onClick={handleRegister} disabled={loading}>
+        {loading ? 'Registering...' : 'Register'}
+      </button>
     </div>
   );
 }
-
-// This file is intentionally left blank to allow for code splitting
-// and to be imported by other files.
