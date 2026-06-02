@@ -114,27 +114,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted-foreground">Quick demo access</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {demoAccounts.map((account) => (
-              <Button
-                key={account.email}
-                variant="outline"
-                size="sm"
-                onClick={() => handleDemoLogin(account.email)}
-                disabled={isSubmitting}
-                className="text-xs"
-              >
-                {account.label}
-              </Button>
-            ))}
-          </div>
-
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {"Don't have an account? "}
             <Link href="/register" className="font-medium text-primary hover:underline">
