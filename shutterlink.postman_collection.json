@@ -1,0 +1,1133 @@
+{
+  "info": {
+    "name": "ShutterLink API",
+    "description": "ShutterLink Photography Marketplace API\n\nBase URL: {{base_url}}/api\n\nAuthentication: JWT Bearer token (auto-set via Login/Register)\n\nStandard Response Format:\n{\n  \"success\": true|false,\n  \"data\": { ... },\n  \"error\": \"error message\",\n  \"message\": \"success message\"\n}",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "shutterlink"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" },
+    { "key": "providerId", "value": "", "type": "string" },
+    { "key": "bookingId", "value": "", "type": "string" },
+    { "key": "packageId", "value": "", "type": "string" },
+    { "key": "portfolioId", "value": "", "type": "string" },
+    { "key": "reviewId", "value": "", "type": "string" },
+    { "key": "messageId", "value": "", "type": "string" },
+    { "key": "notificationId", "value": "", "type": "string" },
+    { "key": "availabilityScheduleId", "value": "", "type": "string" },
+    { "key": "blockedDateId", "value": "", "type": "string" },
+    { "key": "paymentId", "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Registration successful', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.token) {",
+                "        pm.collectionVariables.set('token', jsonData.data.token);",
+                "        pm.collectionVariables.set('userId', jsonData.data.user.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"name\": \"John Doe\",\n  \"role\": \"customer\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Login successful', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.token) {",
+                "        pm.collectionVariables.set('token', jsonData.data.token);",
+                "        pm.collectionVariables.set('userId', jsonData.data.user.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/current-user",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "current-user"]
+            }
+          }
+        },
+        {
+          "name": "Get User By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/user/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "user", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/request-password-reset",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "request-password-reset"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"reset-token-from-email\",\n  \"newPassword\": \"NewSecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "reset-password"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Providers",
+      "item": [
+        {
+          "name": "Search Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/providers/search?service_type=photographer&min_rating=4&min_price=50&max_price=500&specialization=wedding&location=New+York&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "search"],
+              "query": [
+                { "key": "service_type", "value": "photographer" },
+                { "key": "min_rating", "value": "4" },
+                { "key": "min_price", "value": "50" },
+                { "key": "max_price", "value": "500" },
+                { "key": "specialization", "value": "wedding" },
+                { "key": "location", "value": "New York" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Featured Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/providers/featured?limit=6",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "featured"],
+              "query": [{ "key": "limit", "value": "6" }]
+            }
+          }
+        },
+        {
+          "name": "Get Provider By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/providers/by-id/{{providerId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "by-id", "{{providerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get My Provider Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/providers/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Create or Update Provider Profile",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Provider profile saved', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.id) {",
+                "        pm.collectionVariables.set('providerId', jsonData.data.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"business_name\": \"John's Photography\",\n  \"service_type\": [\"photographer\", \"editor\"],\n  \"specializations\": [\"wedding\", \"portrait\", \"event\"],\n  \"years_experience\": 5,\n  \"hourly_rate\": 150,\n  \"bio\": \"Professional photographer with 5 years of experience.\",\n  \"equipment_list\": [\"Canon EOS R5\", \"24-70mm f/2.8\", \"70-200mm f/2.8\"],\n  \"coverage_areas\": [\"New York\", \"Brooklyn\", \"Queens\"],\n  \"max_travel_distance\": 50,\n  \"social_urls\": {\n    \"instagram\": \"https://instagram.com/johnphotography\",\n    \"website\": \"https://johnphotography.com\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/providers/create-or-update",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "create-or-update"]
+            }
+          }
+        },
+        {
+          "name": "Update Availability Status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"available\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/providers/availability",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "availability"]
+            }
+          }
+        },
+        {
+          "name": "Save Provider (Favorite)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"{{providerId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/providers/save",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "save"]
+            }
+          }
+        },
+        {
+          "name": "Unsave Provider",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"{{providerId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/providers/unsave",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "unsave"]
+            }
+          }
+        },
+        {
+          "name": "Get Saved Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/providers/saved",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "saved"]
+            }
+          }
+        },
+        {
+          "name": "Check If Provider Is Saved",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/providers/is-saved/{{providerId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "providers", "is-saved", "{{providerId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create Booking",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Booking created', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.id) {",
+                "        pm.collectionVariables.set('bookingId', jsonData.data.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": \"{{providerId}}\",\n  \"package_id\": \"{{packageId}}\",\n  \"service_date\": \"2026-06-15\",\n  \"service_time\": \"10:00\",\n  \"duration_hours\": 3,\n  \"location_type\": \"on_site\",\n  \"location_address\": \"123 Main St, New York, NY 10001\",\n  \"special_requests\": \"Please bring additional lighting equipment.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings"]
+            }
+          }
+        },
+        {
+          "name": "Get Customer Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/customer?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "customer"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Provider Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/provider?page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "provider"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Upcoming Bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/upcoming?isProvider=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "upcoming"],
+              "query": [{ "key": "isProvider", "value": "false" }]
+            }
+          }
+        },
+        {
+          "name": "Get Booking History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/history?isProvider=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "history"],
+              "query": [{ "key": "isProvider", "value": "false" }]
+            }
+          }
+        },
+        {
+          "name": "Check Availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/availability?providerId={{providerId}}&date=2026-06-15&startTime=10:00&durationHours=3",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "availability"],
+              "query": [
+                { "key": "providerId", "value": "{{providerId}}" },
+                { "key": "date", "value": "2026-06-15" },
+                { "key": "startTime", "value": "10:00" },
+                { "key": "durationHours", "value": "3" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Booking Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/stats?isProvider=false",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "stats"],
+              "query": [{ "key": "isProvider", "value": "false" }]
+            }
+          }
+        },
+        {
+          "name": "Get Booking By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{bookingId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{bookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Booking",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{bookingId}}/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{bookingId}}", "confirm"]
+            }
+          }
+        },
+        {
+          "name": "Complete Booking",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{bookingId}}/complete",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{bookingId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Schedule conflict\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{bookingId}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{bookingId}}", "cancel"]
+            }
+          }
+        },
+        {
+          "name": "Reject Booking",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bookings/{{bookingId}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["api", "bookings", "{{bookingId}}", "reject"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Packages",
+      "item": [
+        {
+          "name": "Get Provider Packages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/packages/provider/{{providerId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages", "provider", "{{providerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Package",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Package created', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.id) {",
+                "        pm.collectionVariables.set('packageId', jsonData.data.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": \"{{providerId}}\",\n  \"name\": \"Wedding Photography - Basic\",\n  \"description\": \"4 hours of wedding photography coverage with 100 edited photos.\",\n  \"price\": 1200,\n  \"duration_hours\": 4,\n  \"features\": [\"4 hours coverage\", \"100 edited photos\", \"Online gallery\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/packages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages"]
+            }
+          }
+        },
+        {
+          "name": "Update Package",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Wedding Photography - Premium\",\n  \"price\": 2400,\n  \"duration_hours\": 8\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/packages/{{packageId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages", "{{packageId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Package",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/packages/{{packageId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "packages", "{{packageId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Portfolio",
+      "item": [
+        {
+          "name": "Get Provider Portfolio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/provider/{{providerId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "provider", "{{providerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Portfolio Item",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Portfolio item created', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.id) {",
+                "        pm.collectionVariables.set('portfolioId', jsonData.data.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": \"{{providerId}}\",\n  \"title\": \"Sunset Wedding at Central Park\",\n  \"description\": \"Beautiful wedding photos captured during golden hour.\",\n  \"image_url\": \"https://example.com/images/sunset-wedding.jpg\",\n  \"category\": \"wedding\",\n  \"display_order\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/portfolio",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio"]
+            }
+          }
+        },
+        {
+          "name": "Update Portfolio Item",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated: Sunset Wedding at Central Park\",\n  \"display_order\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/{{portfolioId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "{{portfolioId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Portfolio Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/{{portfolioId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "{{portfolioId}}"]
+            }
+          }
+        },
+        {
+          "name": "Upload Portfolio Image",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"{{providerId}}\",\n  \"fileName\": \"wedding-photo-1.jpg\",\n  \"contentType\": \"image/jpeg\",\n  \"base64Data\": \"<base64-encoded-image-data>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/portfolio/upload",
+              "host": ["{{base_url}}"],
+              "path": ["api", "portfolio", "upload"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Get My Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/payments/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments", "me"]
+            }
+          }
+        },
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\",\n  \"amount\": 1500.00,\n  \"currency\": \"USD\",\n  \"payment_method\": \"card\",\n  \"status\": \"pending\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/payments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "payments"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Get My Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/reviews/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews", "me"]
+            }
+          }
+        },
+        {
+          "name": "Get Provider Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/reviews/provider/{{providerId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews", "provider", "{{providerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/reviews/pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\",\n  \"provider_id\": \"{{providerId}}\",\n  \"rating\": 5,\n  \"title\": \"Amazing photographer!\",\n  \"comment\": \"John was incredible. The photos turned out beautifully.\",\n  \"would_recommend\": true,\n  \"professionalism_rating\": 5,\n  \"quality_rating\": 5,\n  \"value_rating\": 4\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/reviews",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reviews"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Message sent', function () {",
+                "    var jsonData = pm.response.json();",
+                "    pm.expect(jsonData.success).to.be.true;",
+                "    if (jsonData.data && jsonData.data.id) {",
+                "        pm.collectionVariables.set('messageId', jsonData.data.id);",
+                "    }",
+                "});"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"booking_id\": \"{{bookingId}}\",\n  \"recipient_id\": \"<recipient-user-id>\",\n  \"message\": \"Hi! I wanted to confirm the time for our session tomorrow.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/messages",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages"]
+            }
+          }
+        },
+        {
+          "name": "Get Booking Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/messages/booking/{{bookingId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages", "booking", "{{bookingId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/messages/conversations",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages", "conversations"]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Message Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/messages/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark Message as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/messages/{{messageId}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages", "{{messageId}}", "read"]
+            }
+          }
+        },
+        {
+          "name": "Mark All Booking Messages as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/messages/booking/{{bookingId}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages", "booking", "{{bookingId}}", "read"]
+            }
+          }
+        },
+        {
+          "name": "Delete Message",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/messages/{{messageId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "messages", "{{messageId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Create Notification",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{userId}}\",\n  \"title\": \"New Booking Request\",\n  \"message\": \"You have a new booking request from John Doe.\",\n  \"type\": \"booking_request\",\n  \"reference_id\": \"{{bookingId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications"]
+            }
+          }
+        },
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications?limit=50&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/unread",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "unread"]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Notification Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/{{notificationId}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "{{notificationId}}", "read"]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "read-all"]
+            }
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/{{notificationId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications", "{{notificationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete All Notifications",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["api", "notifications"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Availability",
+      "item": [
+        {
+          "name": "Get Provider Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/availability/provider/{{providerId}}/schedules",
+              "host": ["{{base_url}}"],
+              "path": ["api", "availability", "provider", "{{providerId}}", "schedules"]
+            }
+          }
+        },
+        {
+          "name": "Update Provider Schedules",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schedules\": [\n    {\n      \"provider_id\": \"{{providerId}}\",\n      \"day_of_week\": 1,\n      \"start_time\": \"09:00\",\n      \"end_time\": \"17:00\",\n      \"is_available\": true\n    },\n    {\n      \"provider_id\": \"{{providerId}}\",\n      \"day_of_week\": 2,\n      \"start_time\": \"09:00\",\n      \"end_time\": \"17:00\",\n      \"is_available\": true\n    },\n    {\n      \"provider_id\": \"{{providerId}}\",\n      \"day_of_week\": 3,\n      \"start_time\": \"09:00\",\n      \"end_time\": \"17:00\",\n      \"is_available\": true\n    },\n    {\n      \"provider_id\": \"{{providerId}}\",\n      \"day_of_week\": 4,\n      \"start_time\": \"09:00\",\n      \"end_time\": \"17:00\",\n      \"is_available\": true\n    },\n    {\n      \"provider_id\": \"{{providerId}}\",\n      \"day_of_week\": 5,\n      \"start_time\": \"09:00\",\n      \"end_time\": \"15:00\",\n      \"is_available\": true\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/availability/provider/{{providerId}}/schedules",
+              "host": ["{{base_url}}"],
+              "path": ["api", "availability", "provider", "{{providerId}}", "schedules"]
+            }
+          }
+        },
+        {
+          "name": "Update Single Schedule",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"start_time\": \"10:00\",\n  \"end_time\": \"16:00\",\n  \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/availability/schedules/{{availabilityScheduleId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "availability", "schedules", "{{availabilityScheduleId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Blocked Dates",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/availability/provider/{{providerId}}/blocked-dates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "availability", "provider", "{{providerId}}", "blocked-dates"]
+            }
+          }
+        },
+        {
+          "name": "Block a Date",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider_id\": \"{{providerId}}\",\n  \"blocked_date\": \"2026-06-25\",\n  \"reason\": \"Vacation\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/availability/blocked-dates",
+              "host": ["{{base_url}}"],
+              "path": ["api", "availability", "blocked-dates"]
+            }
+          }
+        },
+        {
+          "name": "Unblock a Date",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/availability/blocked-dates/{{blockedDateId}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "availability", "blocked-dates", "{{blockedDateId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "Get Public Provider Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/providers/{{providerId}}/details",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "providers", "{{providerId}}", "details"]
+            }
+          }
+        },
+        {
+          "name": "Get All Public Portfolios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/public/portfolios",
+              "host": ["{{base_url}}"],
+              "path": ["api", "public", "portfolios"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
