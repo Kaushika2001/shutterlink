@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { mockProviders, categoryLabels } from "@/data/mock-data"
+import { useState, useEffect, useMemo } from "react"
+import { apiRequest } from "@/lib/api"
+import { categoryLabels } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -34,21 +35,36 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, MoreVertical, Camera, Star, CheckCircle, XCircle, Eye, Filter, MapPin, BookOpen } from "lucide-react"
+import { Search, MoreVertical, Camera, Star, CheckCircle, XCircle, Eye, Filter, MapPin, BookOpen, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import type { Provider } from "@/types"
 
 export default function AdminProvidersPage() {
+  const [providers, setProviders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [approvalFilter, setApprovalFilter] = useState<string>("all")
-  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const data: any[] = await apiRequest('/admin/providers', {}, true)
+        setProviders(data ?? [])
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to load providers')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProviders()
+  }, [])
 
   const filtered = useMemo(() => {
-    return mockProviders.filter((p) => {
+    return providers.filter((p) => {
       const matchSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.business_name.toLowerCase().includes(search.toLowerCase())
+        (p.name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (p.business_name ?? "").toLowerCase().includes(search.toLowerCase())
       const matchType = typeFilter === "all" || p.provider_type === typeFilter
       const matchApproval =
         approvalFilter === "all" ||
@@ -56,12 +72,20 @@ export default function AdminProvidersPage() {
         (approvalFilter === "pending" && !p.is_approved)
       return matchSearch && matchType && matchApproval
     })
-  }, [search, typeFilter, approvalFilter])
+  }, [search, typeFilter, approvalFilter, providers])
 
   const providerTypeLabel: Record<string, string> = {
     photographer: "Photographer",
     editor: "Editor",
     equipment_renter: "Equipment Renter",
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -141,7 +165,7 @@ export default function AdminProvidersPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="text-xs">
-                        {providerTypeLabel[provider.provider_type]}
+                        {providerTypeLabel[provider.provider_type] ?? provider.provider_type}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
@@ -229,7 +253,7 @@ export default function AdminProvidersPage() {
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-muted-foreground">Type</span>
                     <span className="text-sm font-medium text-foreground capitalize">
-                      {providerTypeLabel[selectedProvider.provider_type]}
+                      {providerTypeLabel[selectedProvider.provider_type] ?? selectedProvider.provider_type}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">
@@ -252,7 +276,7 @@ export default function AdminProvidersPage() {
                   {selectedProvider.location}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedProvider.categories.map((cat) => (
+                  {(selectedProvider.categories ?? []).map((cat: string) => (
                     <Badge key={cat} variant="secondary" className="text-xs">
                       {categoryLabels[cat] || cat}
                     </Badge>

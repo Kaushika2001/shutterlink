@@ -147,6 +147,11 @@ export const completeBooking = async (bookingId: string): Promise<Booking> => {
   return await apiRequest<Booking>(`/bookings/${bookingId}/complete`, { method: 'PUT' }, true);
 };
 
+// Provider rejects booking
+export const rejectBooking = async (bookingId: string): Promise<Booking> => {
+  return await apiRequest<Booking>(`/bookings/${bookingId}/reject`, { method: 'PUT' }, true);
+};
+
 /* =========================
    AVAILABILITY CHECKS
 ========================= */

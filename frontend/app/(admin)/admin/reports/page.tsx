@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { apiRequest } from "@/lib/api"
 import { ChartCard } from "@/components/charts/chart-card"
 import { StatCard } from "@/components/charts/stat-card"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,18 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  mockBookings,
-  mockPayments,
-  mockProviders,
-  monthlyRevenueData,
-  bookingsByCategory,
-  userGrowthData,
-} from "@/data/mock-data"
-import {
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   LineChart,
   Line,
   PieChart,
@@ -38,7 +29,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts"
-import { Download, FileText, TrendingUp, BookOpen, CreditCard, Users } from "lucide-react"
+import { Download, FileText, TrendingUp, BookOpen, CreditCard, Users, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 const COLORS = [
@@ -50,21 +41,40 @@ const COLORS = [
   "oklch(0.45 0.18 300)",
 ]
 
-const providerPerformance = [
-  { name: "Rivera Photography", bookings: 89, revenue: 425000, rating: 4.8 },
-  { name: "Chen Creative Studio", bookings: 65, revenue: 195000, rating: 4.6 },
-  { name: "GearUp Rentals", bookings: 156, revenue: 312000, rating: 4.9 },
-  { name: "Nisha Capture Studio", bookings: 34, revenue: 340000, rating: 4.7 },
-]
-
 export default function AdminReportsPage() {
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState("yearly")
 
-  const totalRevenue = mockPayments
-    .filter((p) => p.status === "completed")
-    .reduce((sum, p) => sum + p.amount, 0)
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data: any = await apiRequest('/admin/reports', {}, true)
+        setDashboardData(data)
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to load report data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
-  const completedBookings = mockBookings.filter((b) => b.status === "completed").length
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  const totalRevenue = dashboardData?.revenue ?? 0
+  const completedBookings = dashboardData?.completed_bookings ?? 0
+  const activeProviders = dashboardData?.active_providers ?? 0
+  const monthlyRevenueData = dashboardData?.revenueData ?? []
+  const userGrowthData = dashboardData?.userGrowthData ?? []
+  const bookingsByCategory = dashboardData?.bookingsByCategory ?? []
+  const providerPerformance = dashboardData?.providerPerformance ?? []
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,7 +124,7 @@ export default function AdminReportsPage() {
         />
         <StatCard
           title="Active Providers"
-          value={mockProviders.filter((p) => p.is_approved).length}
+          value={activeProviders}
           icon={<Users className="h-5 w-5" />}
           change={8.3}
           trend="up"
@@ -212,7 +222,7 @@ export default function AdminReportsPage() {
                 paddingAngle={4}
                 dataKey="value"
               >
-                {bookingsByCategory.map((_, index) => (
+                {bookingsByCategory.map((_: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -245,8 +255,8 @@ export default function AdminReportsPage() {
           <div className="overflow-x-auto">
             <div className="flex flex-col gap-3">
               {providerPerformance
-                .sort((a, b) => b.revenue - a.revenue)
-                .map((provider, index) => (
+                .sort((a: any, b: any) => b.revenue - a.revenue)
+                .map((provider: any, index: number) => (
                   <div
                     key={provider.name}
                     className="flex items-center justify-between rounded-xl border border-border p-4 transition-colors hover:bg-accent/50"

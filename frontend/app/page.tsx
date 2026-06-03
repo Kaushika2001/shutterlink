@@ -1,12 +1,15 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Navbar } from "@/components/layout/navbar"
 import { Footer } from "@/components/layout/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { StarRating } from "@/components/ui/star-rating"
-import { mockProviders, categoryLabels } from "@/data/mock-data"
+import { categoryLabels } from "@/lib/constants"
+import { getFeaturedProviders } from "@/services/provider"
+import { toast } from "sonner"
 import {
   Camera,
   Search,
@@ -52,7 +55,39 @@ const serviceTypes = [
 ]
 
 export default function HomePage() {
-  const topProviders = mockProviders.filter((p) => p.is_approved).slice(0, 3)
+  const [featuredProviders, setFeaturedProviders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const data = await getFeaturedProviders(3)
+        setFeaturedProviders(
+          data.map((p: any) => ({
+            ...p,
+            name: p.business_name,
+            provider_type:
+              p.service_type?.[0] === "editing"
+                ? "editor"
+                : p.service_type?.[0] === "equipment_rental"
+                  ? "equipment_renter"
+                  : "photographer",
+            categories: p.service_type || [],
+            price_range: { min: p.hourly_rate || 0, max: (p.hourly_rate || 0) * 2 },
+            rating: p.average_rating || 0,
+            total_reviews: p.total_bookings || 0,
+            portfolio: p.portfolio_url ? [{ image_url: p.portfolio_url }] : [],
+            location: p.coverage_areas?.[0] || "N/A",
+          }))
+        )
+      } catch {
+        toast.error("Failed to load featured providers")
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProviders()
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -160,51 +195,77 @@ export default function HomePage() {
             </Button>
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {topProviders.map((provider) => (
-              <Link key={provider.id} href={`/provider-profile/${provider.id}`}>
-                <Card className="overflow-hidden border-border bg-card transition-all hover:-translate-y-1 hover:shadow-lg">
-                  <div className="aspect-[16/10] overflow-hidden bg-muted">
-                    {provider.portfolio[0] && (
-                      <img
-                        src={provider.portfolio[0].image_url}
-                        alt={provider.business_name}
-                        className="h-full w-full object-cover transition-transform hover:scale-105"
-                        crossOrigin="anonymous"
-                      />
-                    )}
-                  </div>
-                  <CardContent className="p-5">
-                    <div className="mb-2 flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-card-foreground">{provider.business_name}</h3>
-                        <p className="text-sm text-muted-foreground">{provider.name}</p>
+            {loading
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <Card key={i} className="overflow-hidden border-border bg-card">
+                    <div className="aspect-[16/10] bg-muted animate-pulse" />
+                    <CardContent className="p-5">
+                      <div className="mb-2 flex items-start justify-between">
+                        <div className="space-y-2">
+                          <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+                          <div className="h-3 w-24 bg-muted animate-pulse rounded" />
+                        </div>
+                        <div className="h-5 w-20 bg-muted animate-pulse rounded-full" />
                       </div>
-                      <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                        {provider.provider_type === "photographer" ? "Photographer" : provider.provider_type === "editor" ? "Editor" : "Rental"}
-                      </span>
-                    </div>
-                    <div className="mb-3 flex items-center gap-2">
-                      <StarRating rating={provider.rating} size={14} />
-                      <span className="text-sm font-medium text-foreground">{provider.rating}</span>
-                      <span className="text-xs text-muted-foreground">({provider.total_reviews})</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {provider.categories.slice(0, 3).map((cat) => (
-                        <span key={cat} className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {categoryLabels[cat]}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{provider.location}</span>
-                      <span className="font-semibold text-foreground">
-                        LKR {provider.price_range.min.toLocaleString()}+
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                      <div className="mb-3 flex items-center gap-2">
+                        <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <div className="h-5 w-16 bg-muted animate-pulse rounded-md" />
+                        <div className="h-5 w-16 bg-muted animate-pulse rounded-md" />
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-sm">
+                        <div className="h-3 w-20 bg-muted animate-pulse rounded" />
+                        <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              : featuredProviders.map((provider) => (
+                  <Link key={provider.id} href={`/provider-profile/${provider.id}`}>
+                    <Card className="overflow-hidden border-border bg-card transition-all hover:-translate-y-1 hover:shadow-lg">
+                      <div className="aspect-[16/10] overflow-hidden bg-muted">
+                        {provider.portfolio[0] && (
+                          <img
+                            src={provider.portfolio[0].image_url}
+                            alt={provider.business_name}
+                            className="h-full w-full object-cover transition-transform hover:scale-105"
+                            crossOrigin="anonymous"
+                          />
+                        )}
+                      </div>
+                      <CardContent className="p-5">
+                        <div className="mb-2 flex items-start justify-between">
+                          <div>
+                            <h3 className="font-semibold text-card-foreground">{provider.business_name}</h3>
+                            <p className="text-sm text-muted-foreground">{provider.name}</p>
+                          </div>
+                          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                            {provider.provider_type === "photographer" ? "Photographer" : provider.provider_type === "editor" ? "Editor" : "Rental"}
+                          </span>
+                        </div>
+                        <div className="mb-3 flex items-center gap-2">
+                          <StarRating rating={provider.rating} size={14} />
+                          <span className="text-sm font-medium text-foreground">{provider.rating}</span>
+                          <span className="text-xs text-muted-foreground">({provider.total_reviews})</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {provider.categories.slice(0, 3).map((cat: string) => (
+                            <span key={cat} className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                              {categoryLabels[cat]}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{provider.location}</span>
+                          <span className="font-semibold text-foreground">
+                            LKR {provider.price_range.min.toLocaleString()}+
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
           </div>
           <div className="mt-8 text-center sm:hidden">
             <Button variant="outline" asChild>

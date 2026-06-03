@@ -1,8 +1,12 @@
 "use client"
 
-import { use } from "react"
+import { use, useState, useEffect } from "react"
 import Link from "next/link"
-import { mockBookings, mockPayments, categoryLabels } from "@/data/mock-data"
+import { getBookingById } from "@/services/bookings"
+import { getUserPayments } from "@/services/payments"
+import type { Booking } from "@/services/bookings"
+import type { Payment } from "@/services/payments"
+import { categoryLabels } from "@/lib/constants"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,13 +22,78 @@ import {
   ArrowLeft,
   Download,
   Printer,
+  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 
+function calculateEndTime(startTime: string, durationHours: number): string {
+  const [hours, minutes] = startTime.split(":").map(Number)
+  const totalMinutes = hours * 60 + minutes + durationHours * 60
+  const endHours = Math.floor(totalMinutes / 60) % 24
+  const endMinutes = totalMinutes % 60
+  return `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}`
+}
+
+interface MappedBooking {
+  id: string
+  customer_name: string
+  customer_email: string
+  provider_business: string
+  provider_name: string
+  date: string
+  start_time: string
+  end_time: string
+  location: string
+  notes: string
+  service_category: string
+  status: string
+  total_amount: number
+}
+
 export default function BookingConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const booking = mockBookings.find((b) => b.id === id)
-  const payment = mockPayments.find((p) => p.booking_id === id)
+  const [booking, setBooking] = useState<MappedBooking | null>(null)
+  const [payment, setPayment] = useState<Payment | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [apiBooking, allPayments] = await Promise.all([getBookingById(id), getUserPayments()])
+        const mapped: MappedBooking = {
+          id: apiBooking.id,
+          customer_name: apiBooking.customer_name ?? "",
+          customer_email: "",
+          provider_business: apiBooking.provider_business_name ?? "",
+          provider_name: apiBooking.provider_name ?? "",
+          date: apiBooking.service_date,
+          start_time: apiBooking.service_time,
+          end_time: calculateEndTime(apiBooking.service_time, apiBooking.duration_hours),
+          location: apiBooking.location_address ?? apiBooking.location_type ?? "",
+          notes: apiBooking.special_requests ?? "",
+          service_category: apiBooking.package_name ?? "",
+          status: apiBooking.status,
+          total_amount: apiBooking.total_price,
+        }
+        const matchingPayment = allPayments.find((p) => p.booking_id === id) ?? null
+        setBooking(mapped)
+        setPayment(matchingPayment)
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load booking")
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [id])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   if (!booking) {
     return (
@@ -118,7 +187,7 @@ export default function BookingConfirmationPage({ params }: { params: Promise<{ 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Service</span>
                 <span className="font-medium text-foreground">
-                  {categoryLabels[booking.service_category]}
+                  {categoryLabels[booking.service_category] || booking.service_category}
                 </span>
               </div>
               <div className="mt-2 flex items-center justify-between text-sm">
@@ -156,12 +225,12 @@ export default function BookingConfirmationPage({ params }: { params: Promise<{ 
                 <div className="mt-3 flex flex-col gap-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Transaction Ref</span>
-                    <span className="font-mono text-foreground">{payment.transaction_ref}</span>
+                    <span className="font-mono text-foreground">{payment.transaction_id ?? payment.id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Method</span>
                     <span className="text-foreground capitalize">
-                      {payment.method.replace("_", " ")}
+                      {payment.payment_method.replace("_", " ")}
                     </span>
                   </div>
                   <div className="flex justify-between">

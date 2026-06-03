@@ -70,6 +70,7 @@ export class ProviderService {
           ...payload,
           user_id: userId,
           availability_status: 'available',
+          is_verified: true,
           total_bookings: existingProvider.total_bookings,
           average_rating: existingProvider.average_rating,
           response_time_hours: existingProvider.response_time_hours,
@@ -93,6 +94,7 @@ export class ProviderService {
             ...payload,
             user_id: userId,
             availability_status: 'available',
+            is_verified: true,
             total_bookings: 0,
             average_rating: 0,
             response_time_hours: 24,
@@ -113,8 +115,11 @@ export class ProviderService {
   async searchProviders(options: ProviderSearchOptions): Promise<ProviderProfile[]> {
     let query = supabaseAdmin
       .from('provider_profiles')
-      .select('*')
-      .eq('is_verified', true);
+      .select('*');
+
+    if (options.is_verified !== false) {
+      query = query.eq('is_verified', true);
+    }
 
     if (options.service_type) {
       query = query.contains('service_type', [options.service_type]);

@@ -135,12 +135,29 @@ export const getPaymentStats = async () => {
 
 // Get provider payouts
 export const getProviderPayouts = async (): Promise<ProviderPayout[]> => {
-  return [];
+  try {
+    return await apiRequest<ProviderPayout[]>('/payments/provider', {}, true);
+  } catch {
+    return [];
+  }
 };
 
 // Get provider earnings summary
 export const getProviderEarnings = async (): Promise<EarningsSummary> => {
-  return { total_earnings: 0, pending_payouts: 0, completed_payouts: 0, platform_fees: 0 };
+  try {
+    const payments: Payment[] = await apiRequest<Payment[]>('/payments/provider', {}, true);
+    const completed = payments.filter(p => p.status === 'completed');
+    const total = completed.reduce((s, p) => s + p.amount, 0);
+    const fees = completed.reduce((s, p) => s + (p.payment_type === 'deposit' ? 0 : p.amount * 0.15), 0);
+    return {
+      total_earnings: total,
+      pending_payouts: payments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0),
+      completed_payouts: total,
+      platform_fees: Math.round(fees * 100) / 100,
+    };
+  } catch {
+    return { total_earnings: 0, pending_payouts: 0, completed_payouts: 0, platform_fees: 0 };
+  }
 };
 
 /* =========================

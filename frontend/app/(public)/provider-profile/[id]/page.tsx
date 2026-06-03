@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { categoryLabels } from "@/data/mock-data"
+import { categoryLabels } from "@/lib/constants"
 import {
   MapPin,
   Phone,
@@ -21,8 +21,10 @@ import {
   Camera,
   Loader2,
 } from "lucide-react"
+import { PackageCard } from "@/components/cards/package-card"
 import { getProviderWithDetails } from "@/services/provider"
 import { getProviderReviews } from "@/services/reviews"
+import type { PackageWithProvider } from "@/services/packages"
 import { toast } from "sonner"
 
 export default function ProviderProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -162,10 +164,20 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
               <Tabs defaultValue="portfolio">
                 <TabsList className="mb-4 w-full justify-start bg-muted">
                   <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+                  <TabsTrigger value="packages">
+                    Packages ({(provider.service_packages || []).filter((p: any) => p.is_active).length})
+                  </TabsTrigger>
                   <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="portfolio">
+                  {provider.portfolio_items && provider.portfolio_items.length > 0 && (
+                    <div className="mb-4 flex justify-end">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/explore/portfolio/${provider.id}`}>View full album</Link>
+                      </Button>
+                    </div>
+                  )}
                   {provider.portfolio_items && provider.portfolio_items.length > 0 ? (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {provider.portfolio_items.map((item: any) => (
@@ -192,6 +204,42 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
                   ) : (
                     <div className="py-12 text-center text-muted-foreground">No portfolio items yet.</div>
                   )}
+                </TabsContent>
+
+                <TabsContent value="packages">
+                  {(() => {
+                    const activePackages: PackageWithProvider[] = (provider.service_packages || [])
+                      .filter((p: any) => p.is_active)
+                      .map((pkg: any) => ({
+                        ...pkg,
+                        provider: {
+                          id: provider.id,
+                          user_id: provider.user_id,
+                          business_name: provider.business_name,
+                          service_type: provider.service_type || [],
+                          specializations: provider.specializations || [],
+                          coverage_areas: provider.coverage_areas || [],
+                          average_rating: provider.average_rating || 0,
+                          is_verified: provider.is_verified,
+                          availability_status: provider.availability_status,
+                          total_bookings: provider.total_bookings || 0,
+                          created_at: provider.created_at,
+                          updated_at: provider.updated_at,
+                        },
+                      }))
+                    const cover =
+                      provider.portfolio_items?.find((i: any) => i.is_featured)?.image_url ||
+                      provider.portfolio_items?.[0]?.image_url
+                    return activePackages.length > 0 ? (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {activePackages.map((pkg) => (
+                          <PackageCard key={pkg.id} pkg={pkg} coverImageUrl={cover} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-muted-foreground">No packages listed yet.</div>
+                    )
+                  })()}
                 </TabsContent>
 
                 <TabsContent value="reviews">

@@ -1,19 +1,11 @@
 "use client"
 
-import { Users, Camera, BookOpen, CreditCard, TrendingUp, AlertTriangle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Users, Camera, BookOpen, CreditCard, TrendingUp, AlertTriangle, Loader2 } from "lucide-react"
+import { apiRequest } from "@/lib/api"
 import { StatCard } from "@/components/charts/stat-card"
 import { ChartCard } from "@/components/charts/chart-card"
 import { StatusBadge } from "@/components/ui/status-badge"
-import {
-  mockUsers,
-  mockProviders,
-  mockBookings,
-  mockPayments,
-  mockDisputes,
-  monthlyRevenueData,
-  userGrowthData,
-  bookingsByCategory,
-} from "@/data/mock-data"
 import {
   AreaChart,
   Area,
@@ -30,6 +22,7 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { toast } from "sonner"
 
 const COLORS = [
   "oklch(0.457 0.24 277)",
@@ -41,40 +34,73 @@ const COLORS = [
 ]
 
 export default function AdminDashboard() {
-  const totalRevenue = mockPayments
-    .filter((p) => p.status === "completed")
-    .reduce((sum, p) => sum + p.amount, 0)
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data: any = await apiRequest('/admin/dashboard', {}, true)
+        setDashboardData({
+          ...data,
+          recentBookings: (data.recentBookings ?? []).map((b: any) => ({
+            ...b,
+            provider_business: b.provider_business_name ?? b.provider_business,
+            date: b.service_date ?? b.date,
+            total_amount: b.total_price ?? b.total_amount,
+          })),
+        })
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to load dashboard data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   const stats = [
     {
       title: "Total Users",
-      value: mockUsers.length + mockProviders.length,
+      value: dashboardData?.total_users ?? 0,
       change: 12.5,
       icon: <Users className="h-5 w-5" />,
       trend: "up" as const,
     },
     {
       title: "Service Providers",
-      value: mockProviders.length,
+      value: dashboardData?.total_providers ?? 0,
       change: 8.3,
       icon: <Camera className="h-5 w-5" />,
       trend: "up" as const,
     },
     {
       title: "Total Bookings",
-      value: mockBookings.length,
+      value: dashboardData?.total_bookings ?? 0,
       change: 15.2,
       icon: <BookOpen className="h-5 w-5" />,
       trend: "up" as const,
     },
     {
       title: "Revenue",
-      value: `LKR ${(totalRevenue / 1000).toFixed(0)}K`,
+      value: `LKR ${((dashboardData?.revenue ?? 0) / 1000).toFixed(0)}K`,
       change: 22.1,
       icon: <CreditCard className="h-5 w-5" />,
       trend: "up" as const,
     },
   ]
+
+  const monthlyRevenueData = dashboardData?.revenueData ?? []
+  const userGrowthData = dashboardData?.userGrowthData ?? []
+  const bookingsByCategory = dashboardData?.bookingsByCategory ?? []
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,7 +192,7 @@ export default function AdminDashboard() {
                 paddingAngle={4}
                 dataKey="value"
               >
-                {bookingsByCategory.map((_, index) => (
+                {bookingsByCategory.map((_: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -188,7 +214,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-3">
-              {mockBookings.slice(0, 5).map((booking) => (
+              {(dashboardData?.recentBookings ?? []).slice(0, 5).map((booking: any) => (
                 <div
                   key={booking.id}
                   className="flex items-center justify-between rounded-xl border border-border p-3 transition-colors hover:bg-accent/50"
@@ -203,7 +229,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-card-foreground">
-                      LKR {booking.total_amount.toLocaleString()}
+                      LKR {booking.total_amount?.toLocaleString() ?? booking.total_amount}
                     </span>
                     <StatusBadge status={booking.status} />
                   </div>
@@ -221,13 +247,13 @@ export default function AdminDashboard() {
           <CardTitle className="text-base font-semibold text-card-foreground">Active Disputes</CardTitle>
         </CardHeader>
         <CardContent>
-          {mockDisputes.filter((d) => d.status === "open").length === 0 ? (
+          {(dashboardData?.active_disputes ?? []).filter((d: any) => d.status === "open").length === 0 ? (
             <p className="text-sm text-muted-foreground">No active disputes</p>
           ) : (
             <div className="flex flex-col gap-3">
-              {mockDisputes
-                .filter((d) => d.status === "open")
-                .map((dispute) => (
+              {(dashboardData?.active_disputes ?? [])
+                .filter((d: any) => d.status === "open")
+                .map((dispute: any) => (
                   <div
                     key={dispute.id}
                     className="flex items-center justify-between rounded-xl border border-border p-4"

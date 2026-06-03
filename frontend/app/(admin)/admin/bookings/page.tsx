@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { mockBookings, categoryLabels } from "@/data/mock-data"
+import { useState, useEffect, useMemo } from "react"
+import { apiRequest } from "@/lib/api"
+import { categoryLabels } from "@/lib/constants"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -28,24 +29,53 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, BookOpen, Filter, Calendar, MapPin, Clock, FileText, User, Briefcase } from "lucide-react"
-import type { Booking } from "@/types"
+import { Search, BookOpen, Filter, Calendar, MapPin, Clock, FileText, User, Briefcase, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function AdminBookingsPage() {
+  const [bookings, setBookings] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [selectedBooking, setSelectedBooking] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const data: any[] = await apiRequest('/admin/bookings', {}, true)
+        setBookings((data ?? []).map((b: any) => ({
+          ...b,
+          provider_business: b.provider_business_name ?? b.provider_business,
+          date: b.service_date ?? b.date,
+          total_amount: b.total_price ?? b.total_amount,
+        })))
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to load bookings')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchBookings()
+  }, [])
 
   const filtered = useMemo(() => {
-    return mockBookings.filter((b) => {
+    return bookings.filter((b) => {
       const matchSearch =
-        b.customer_name.toLowerCase().includes(search.toLowerCase()) ||
-        b.provider_name.toLowerCase().includes(search.toLowerCase()) ||
-        b.id.toLowerCase().includes(search.toLowerCase())
+        (b.customer_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (b.provider_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (b.id ?? "").toLowerCase().includes(search.toLowerCase())
       const matchStatus = statusFilter === "all" || b.status === statusFilter
       return matchSearch && matchStatus
     })
-  }, [search, statusFilter])
+  }, [search, statusFilter, bookings])
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -105,7 +135,7 @@ export default function AdminBookingsPage() {
                 {filtered.map((booking) => (
                   <TableRow key={booking.id} className="hover:bg-accent/30">
                     <TableCell className="font-mono text-xs text-muted-foreground">
-                      {booking.id.toUpperCase()}
+                      {booking.id?.toUpperCase()}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium text-card-foreground">{booking.customer_name}</span>
@@ -114,10 +144,10 @@ export default function AdminBookingsPage() {
                       <span className="text-sm text-muted-foreground">{booking.provider_business}</span>
                     </TableCell>
                     <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
-                      {new Date(booking.date).toLocaleDateString()}
+                      {booking.date ? new Date(booking.date).toLocaleDateString() : "N/A"}
                     </TableCell>
                     <TableCell className="hidden text-sm font-medium text-card-foreground lg:table-cell">
-                      LKR {booking.total_amount.toLocaleString()}
+                      LKR {(booking.total_amount ?? 0).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={booking.status} />
@@ -153,16 +183,16 @@ export default function AdminBookingsPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-foreground">
-                  Booking {selectedBooking.id.toUpperCase()}
+                  Booking {selectedBooking.id?.toUpperCase()}
                 </DialogTitle>
                 <DialogDescription>
-                  {categoryLabels[selectedBooking.service_category]} booking details
+                  {categoryLabels[selectedBooking.service_category] ?? selectedBooking.service_category} booking details
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4 pt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-foreground">
-                    LKR {selectedBooking.total_amount.toLocaleString()}
+                    LKR {(selectedBooking.total_amount ?? 0).toLocaleString()}
                   </span>
                   <StatusBadge status={selectedBooking.status} />
                 </div>
@@ -188,7 +218,7 @@ export default function AdminBookingsPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Date</p>
                       <p className="text-sm font-medium text-foreground">
-                        {new Date(selectedBooking.date).toLocaleDateString()}
+                        {selectedBooking.date ? new Date(selectedBooking.date).toLocaleDateString() : "N/A"}
                       </p>
                     </div>
                   </div>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { mockUsers, mockProviders } from "@/data/mock-data"
+import { useState, useEffect, useMemo } from "react"
+import { apiRequest } from "@/lib/api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -27,25 +27,46 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Search, MoreVertical, ShieldCheck, ShieldX, User, Filter } from "lucide-react"
+import { Search, MoreVertical, ShieldCheck, ShieldX, User, Filter, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
-type AllUser = (typeof mockUsers)[number] | (typeof mockProviders)[number]
-
 export default function AdminUsersPage() {
+  const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
-  const allUsers: AllUser[] = [...mockUsers, ...mockProviders]
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data: any[] = await apiRequest('/admin/users', {}, true)
+        setUsers(data ?? [])
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to load users')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [])
 
   const filtered = useMemo(() => {
-    return allUsers.filter((u) => {
+    return users.filter((u) => {
       const matchSearch =
         u.name.toLowerCase().includes(search.toLowerCase()) ||
         u.email.toLowerCase().includes(search.toLowerCase())
       const matchRole = roleFilter === "all" || u.role === roleFilter
       return matchSearch && matchRole
     })
-  }, [search, roleFilter, allUsers])
+  }, [search, roleFilter, users])
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">

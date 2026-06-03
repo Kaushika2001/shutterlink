@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { mockPayments } from "@/data/mock-data"
+import { useState, useEffect, useMemo } from "react"
+import { apiRequest } from "@/lib/api"
 import { StatCard } from "@/components/charts/stat-card"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,38 +22,63 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Search, CreditCard, TrendingUp, Clock, CheckCircle, Filter } from "lucide-react"
+import { Search, CreditCard, TrendingUp, Clock, CheckCircle, Filter, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export default function AdminPaymentsPage() {
+  const [payments, setPayments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [methodFilter, setMethodFilter] = useState<string>("all")
 
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const data: any[] = await apiRequest('/admin/payments', {}, true)
+        setPayments(data ?? [])
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to load payments')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPayments()
+  }, [])
+
   const filtered = useMemo(() => {
-    return mockPayments.filter((p) => {
+    return payments.filter((p) => {
       const matchSearch =
-        p.customer_name.toLowerCase().includes(search.toLowerCase()) ||
-        p.provider_name.toLowerCase().includes(search.toLowerCase()) ||
-        p.transaction_ref.toLowerCase().includes(search.toLowerCase())
+        (p.customer_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (p.provider_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
+        (p.transaction_ref ?? "").toLowerCase().includes(search.toLowerCase())
       const matchStatus = statusFilter === "all" || p.status === statusFilter
       const matchMethod = methodFilter === "all" || p.method === methodFilter
       return matchSearch && matchStatus && matchMethod
     })
-  }, [search, statusFilter, methodFilter])
+  }, [search, statusFilter, methodFilter, payments])
 
-  const totalCompleted = mockPayments
+  const totalCompleted = payments
     .filter((p) => p.status === "completed")
-    .reduce((sum, p) => sum + p.amount, 0)
+    .reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
 
-  const totalPending = mockPayments
+  const totalPending = payments
     .filter((p) => p.status === "pending")
-    .reduce((sum, p) => sum + p.amount, 0)
+    .reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
 
   const methodLabels: Record<string, string> = {
     onepay: "OnePay",
     helapay: "HelaPay",
     bank_transfer: "Bank Transfer",
     card: "Card",
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (
@@ -78,7 +103,7 @@ export default function AdminPaymentsPage() {
         />
         <StatCard
           title="Completed Transactions"
-          value={mockPayments.filter((p) => p.status === "completed").length}
+          value={payments.filter((p) => p.status === "completed").length}
           icon={<CheckCircle className="h-5 w-5" />}
           change={15}
           trend="up"
@@ -156,18 +181,18 @@ export default function AdminPaymentsPage() {
                       {payment.provider_name}
                     </TableCell>
                     <TableCell className="text-sm font-semibold text-card-foreground">
-                      LKR {payment.amount.toLocaleString()}
+                      LKR {(payment.amount ?? 0).toLocaleString()}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <Badge variant="secondary" className="text-xs">
-                        {methodLabels[payment.method]}
+                        {methodLabels[payment.method] ?? payment.method}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={payment.status} />
                     </TableCell>
                     <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
-                      {new Date(payment.created_at).toLocaleDateString()}
+                      {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : "N/A"}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -20,6 +20,16 @@ export class MarketplaceController {
     res.json({ success: true, data });
   }
 
+  async searchAllPackages(req: Request, res: Response) {
+    const data = await marketplaceService.searchAllPackages();
+    res.json({ success: true, data });
+  }
+
+  async getPackageById(req: Request, res: Response) {
+    const data = await marketplaceService.getPackageById(req.params.id);
+    res.json({ success: true, data });
+  }
+
   async createPackage(req: Request, res: Response) {
     const data = await marketplaceService.createPackage(req.body);
     res.status(201).json({ success: true, data });
@@ -41,25 +51,9 @@ export class MarketplaceController {
     res.json({ success: true, data });
   }
 
-  async createPortfolioItem(req: Request, res: Response) {
-    const data = await marketplaceService.createPortfolioItem(req.body);
+  async createPortfolioItem(req: AuthRequest, res: Response) {
+    const data = await marketplaceService.createPortfolioItem(req.userId!, req.body);
     res.status(201).json({ success: true, data });
-  }
-
-  async updatePortfolioItem(req: Request, res: Response) {
-    const data = await marketplaceService.updatePortfolioItem(req.params.id, req.body);
-    res.json({ success: true, data });
-  }
-
-  async deletePortfolioItem(req: Request, res: Response) {
-    await marketplaceService.deletePortfolioItem(req.params.id);
-    res.json({ success: true, data: true });
-  }
-
-  async uploadImage(req: Request, res: Response) {
-    const { providerId, fileName, contentType, base64Data } = req.body;
-    const result = await marketplaceService.uploadImage(providerId, fileName, contentType, base64Data);
-    res.status(201).json({ success: true, data: result });
   }
 
   // ==================== Payments ====================
@@ -213,6 +207,11 @@ export class MarketplaceController {
 
   async getPublicPortfolios(req: Request, res: Response) {
     const data = await marketplaceService.getPublicPortfolios();
+    res.json({ success: true, data });
+  }
+
+  async getPublicPortfolioAlbums(req: Request, res: Response) {
+    const data = await marketplaceService.getPublicPortfolioAlbums();
     res.json({ success: true, data });
   }
 }

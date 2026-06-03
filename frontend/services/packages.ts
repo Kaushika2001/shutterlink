@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api';
+import type { ProviderProfile } from './provider';
 
 type DbInsert<T> = Omit<T, 'id' | 'created_at' | 'updated_at'>;
 type DbUpdate<T> = Partial<Omit<T, 'id' | 'created_at' | 'updated_at'>>;
@@ -21,6 +22,10 @@ export interface ServicePackage {
   updated_at: string;
 }
 
+export interface PackageWithProvider extends ServicePackage {
+  provider: ProviderProfile;
+}
+
 export class PackageServiceError extends Error {
   constructor(message: string, public originalError?: any) {
     super(message);
@@ -31,13 +36,20 @@ export class PackageServiceError extends Error {
 export const getServicePackages = async (providerId: string): Promise<ServicePackage[]> =>
   apiRequest<ServicePackage[]>(`/packages/provider/${providerId}`);
 
+export const getExplorePackages = async (): Promise<PackageWithProvider[]> =>
+  apiRequest<PackageWithProvider[]>('/packages/search');
+
 export const getActiveServicePackages = async (providerId: string): Promise<ServicePackage[]> => {
   const data = await getServicePackages(providerId);
   return data.filter((item) => item.is_active);
 };
 
-export const getServicePackageById = async (packageId: string): Promise<ServicePackage | null> => {
-  throw new PackageServiceError('Get package by id endpoint not implemented yet');
+export const getServicePackageById = async (packageId: string): Promise<PackageWithProvider | null> => {
+  try {
+    return await apiRequest<PackageWithProvider>(`/packages/${packageId}`);
+  } catch {
+    return null;
+  }
 };
 
 export const createServicePackage = async (packageData: DbInsert<ServicePackage>): Promise<ServicePackage | null> =>

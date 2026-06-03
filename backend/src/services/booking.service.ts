@@ -2,6 +2,13 @@ import { supabaseAdmin } from '../config/supabase';
 import { Booking, CreateBookingPayload, BookingStatus } from '../types';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
+interface EnrichedBooking extends Booking {
+  provider_name?: string;
+  provider_business_name?: string;
+  customer_name?: string;
+  package_name?: string;
+}
+
 export class BookingService {
   async createBooking(userId: string, payload: CreateBookingPayload): Promise<Booking> {
     // Fetch package to calculate price
@@ -53,7 +60,7 @@ export class BookingService {
     return booking as Booking;
   }
 
-  async getCustomerBookings(customerId: string, page: number = 1, limit: number = 20): Promise<Booking[]> {
+  async getCustomerBookings(customerId: string, page: number = 1, limit: number = 20): Promise<EnrichedBooking[]> {
     const offset = (page - 1) * limit;
 
     const { data: bookings, error } = await supabaseAdmin
@@ -61,17 +68,51 @@ export class BookingService {
       .select('*')
       .eq('customer_id', customerId)
       .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false });
+      .order('service_date', { ascending: false });
 
     if (error) {
       console.error('Failed to fetch bookings:', JSON.stringify({ message: error?.message, code: error?.code }));
       throw new ValidationError('Failed to fetch bookings');
     }
 
-    return (bookings || []) as Booking[];
+    const result = (bookings || []) as EnrichedBooking[];
+    if (result.length === 0) return result;
+
+    const providerIds = [...new Set(result.map(b => b.provider_id))];
+    const packageIds = [...new Set(result.map(b => b.package_id))];
+
+    const { data: providers } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('user_id, business_name');
+
+    const { data: packages } = await supabaseAdmin
+      .from('service_packages')
+      .select('id, name')
+      .in('id', packageIds);
+
+    const { data: users } = await supabaseAdmin
+      .from('users')
+      .select('id, name')
+      .in('id', providerIds);
+
+    const providerMap = new Map((providers || []).map(p => [p.user_id, p]));
+    const packageMap = new Map((packages || []).map(p => [p.id, p]));
+    const userMap = new Map((users || []).map(u => [u.id, u]));
+
+    for (const booking of result) {
+      const providerProfile = providerMap.get(booking.provider_id);
+      const pkg = packageMap.get(booking.package_id);
+      const user = userMap.get(booking.provider_id);
+
+      booking.provider_business_name = providerProfile?.business_name || null;
+      booking.package_name = pkg?.name || null;
+      booking.provider_name = user?.name || null;
+    }
+
+    return result;
   }
 
-  async getProviderBookings(providerId: string, page: number = 1, limit: number = 20): Promise<Booking[]> {
+  async getProviderBookings(providerId: string, page: number = 1, limit: number = 20): Promise<EnrichedBooking[]> {
     const offset = (page - 1) * limit;
 
     const { data: bookings, error } = await supabaseAdmin
@@ -79,13 +120,40 @@ export class BookingService {
       .select('*')
       .eq('provider_id', providerId)
       .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false });
+      .order('service_date', { ascending: false });
 
     if (error) {
       throw new ValidationError('Failed to fetch bookings');
     }
 
-    return (bookings || []) as Booking[];
+    const result = (bookings || []) as EnrichedBooking[];
+    if (result.length === 0) return result;
+
+    const customerIds = [...new Set(result.map(b => b.customer_id))];
+    const packageIds = [...new Set(result.map(b => b.package_id))];
+
+    const { data: packages } = await supabaseAdmin
+      .from('service_packages')
+      .select('id, name')
+      .in('id', packageIds);
+
+    const { data: customers } = await supabaseAdmin
+      .from('users')
+      .select('id, name')
+      .in('id', customerIds);
+
+    const customerMap = new Map((customers || []).map(c => [c.id, c]));
+    const packageMap = new Map((packages || []).map(p => [p.id, p]));
+
+    for (const booking of result) {
+      const cust = customerMap.get(booking.customer_id);
+      const pkg = packageMap.get(booking.package_id);
+
+      booking.customer_name = cust?.name || null;
+      booking.package_name = pkg?.name || null;
+    }
+
+    return result;
   }
 
   async getUpcomingBookings(userId: string, isProvider: boolean = false): Promise<Booking[]> {

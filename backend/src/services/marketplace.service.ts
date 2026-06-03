@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
-import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary';
+import { portfolioService } from './portfolio.service';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class MarketplaceService {
@@ -12,6 +12,26 @@ export class MarketplaceService {
       .order('price');
     if (error) throw new ValidationError(error.message);
     return data || [];
+  }
+
+  async searchAllPackages() {
+    const { data, error } = await supabaseAdmin
+      .from('service_packages')
+      .select('*, provider:provider_profiles(*)')
+      .eq('is_active', true)
+      .order('price');
+    if (error) throw new ValidationError(error.message);
+    return data || [];
+  }
+
+  async getPackageById(packageId: string) {
+    const { data, error } = await supabaseAdmin
+      .from('service_packages')
+      .select('*, provider:provider_profiles(*)')
+      .eq('id', packageId)
+      .single();
+    if (error || !data) throw new NotFoundError('Package not found');
+    return data;
   }
 
   async createPackage(payload: any) {
@@ -33,43 +53,22 @@ export class MarketplaceService {
 
   // ==================== Portfolio ====================
   async getProviderPortfolio(providerId: string) {
-    const { data, error } = await supabaseAdmin
-      .from('portfolio_items')
-      .select('*')
-      .eq('provider_id', providerId)
-      .order('display_order', { ascending: true });
-    if (error) throw new ValidationError(error.message);
-    return data || [];
+    return portfolioService.getProviderPortfolio(providerId);
   }
 
-  async createPortfolioItem(payload: any) {
-    const { data, error } = await supabaseAdmin.from('portfolio_items').insert(payload).select().single();
-    if (error) throw new ValidationError(error.message);
-    return data;
-  }
-
-  async updatePortfolioItem(id: string, payload: any) {
-    const { data, error } = await supabaseAdmin.from('portfolio_items').update(payload).eq('id', id).select().single();
-    if (error) throw new ValidationError(error.message);
-    return data;
-  }
-
-  async deletePortfolioItem(id: string) {
-    const { error } = await supabaseAdmin.from('portfolio_items').delete().eq('id', id);
-    if (error) throw new ValidationError(error.message);
-  }
-
-  async uploadImage(providerId: string, fileName: string, contentType: string, base64Data: string) {
-    if (!providerId || !fileName || !base64Data) {
-      throw new ValidationError('providerId, fileName, and base64Data are required');
+  async createPortfolioItem(
+    userId: string,
+    payload: {
+      provider_id: string;
+      image_url: string;
+      title?: string;
+      description?: string;
+      category?: string;
+      is_featured?: boolean;
+      display_order?: number;
     }
-
-    const ext = fileName.includes('.') ? fileName.split('.').pop() : 'jpg';
-    const publicId = `portfolio/${providerId}-${Date.now()}`;
-    const fileBuffer = Buffer.from(base64Data, 'base64');
-
-    const result = await uploadToCloudinary(fileBuffer, 'shutterlink/portfolio', publicId);
-    return { publicUrl: result.publicUrl, publicId: result.publicId };
+  ) {
+    return portfolioService.createPortfolioItem(userId, payload);
   }
 
   // ==================== Payments ====================
@@ -344,7 +343,8 @@ export class MarketplaceService {
       .eq('id', providerId)
       .single();
     if (error || !data) throw new NotFoundError('Provider not found');
-    return data;
+    const packages = (data.service_packages || []).filter((p: any) => p.is_active !== false);
+    return { ...data, service_packages: packages };
   }
 
   async getPublicPortfolios() {
@@ -360,6 +360,71 @@ export class MarketplaceService {
     if (profileError) throw new ValidationError(profileError.message);
 
     return { items: items || [], profiles: profiles || [] };
+  }
+
+  async getPublicPortfolioAlbums() {
+    const { data: items, error: itemError } = await supabaseAdmin
+      .from('portfolio_items')
+      .select('*')
+      .order('display_order', { ascending: true });
+    if (itemError) throw new ValidationError(itemError.message);
+
+    const { data: profiles, error: profileError } = await supabaseAdmin
+      .from('provider_profiles')
+      .select(
+        'id, user_id, business_name, service_type, average_rating, is_verified, coverage_areas, bio, availability_status'
+      );
+    if (profileError) throw new ValidationError(profileError.message);
+
+    const { data: packages, error: packageError } = await supabaseAdmin
+      .from('service_packages')
+      .select('id, provider_id, name, price, service_type')
+      .eq('is_active', true);
+    if (packageError) throw new ValidationError(packageError.message);
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+    const packageCountByProvider = new Map<string, number>();
+    for (const pkg of packages || []) {
+      packageCountByProvider.set(
+        pkg.provider_id,
+        (packageCountByProvider.get(pkg.provider_id) || 0) + 1
+      );
+    }
+
+    const itemsByProvider = new Map<string, any[]>();
+    for (const item of items || []) {
+      const list = itemsByProvider.get(item.provider_id) || [];
+      list.push(item);
+      itemsByProvider.set(item.provider_id, list);
+    }
+
+    const albums = Array.from(itemsByProvider.entries())
+      .map(([providerId, providerItems]) => {
+        const provider = profileMap.get(providerId);
+        if (!provider) return null;
+
+        const featured = providerItems.find((i: any) => i.is_featured);
+        const cover = featured || providerItems[0];
+        const categories = [
+          ...new Set(providerItems.map((i: any) => i.category).filter(Boolean)),
+        ] as string[];
+
+        return {
+          provider_id: providerId,
+          provider,
+          cover_image_url: cover?.image_url || null,
+          cover_title: cover?.title || null,
+          item_count: providerItems.length,
+          package_count: packageCountByProvider.get(providerId) || 0,
+          featured_count: providerItems.filter((i: any) => i.is_featured).length,
+          categories,
+          preview_items: providerItems.slice(0, 4),
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.item_count - a.item_count);
+
+    return { albums, total: albums.length };
   }
 }
 

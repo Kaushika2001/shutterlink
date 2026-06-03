@@ -1,54 +1,143 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
-import { mockProviders } from "@/data/mock-data"
+import { getProviderProfile } from "@/services/provider"
+import {
+  getProviderAvailability,
+  setAvailabilitySchedules,
+  updateAvailabilitySchedule,
+} from "@/services/availability"
+import type { AvailabilitySchedule, CreateAvailabilitySchedule } from "@/services/availability"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import type { AvailabilitySlot } from "@/types"
-import { CalendarDays, Plus, Trash2, Clock } from "lucide-react"
+import { CalendarDays, Plus, Trash2, Clock, Loader2 } from "lucide-react"
 import { toast } from "sonner"
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 export default function ProviderCalendarPage() {
   const { user } = useAuth()
-  const provider = mockProviders.find((p) => p.id === user?.id)
-  const [slots, setSlots] = useState<AvailabilitySlot[]>(provider?.availability || [])
+  const [schedules, setSchedules] = useState<AvailabilitySchedule[]>([])
+  const [loading, setLoading] = useState(true)
+  const [providerProfileId, setProviderProfileId] = useState<string | null>(null)
   const [newDate, setNewDate] = useState("")
   const [newStartTime, setNewStartTime] = useState("09:00")
   const [newEndTime, setNewEndTime] = useState("17:00")
 
-  function addSlot() {
-    if (!newDate) {
+  useEffect(() => {
+    if (!user) return
+
+    const init = async () => {
+      try {
+        const profile = await getProviderProfile(user.id)
+        if (!profile) {
+          toast.error("Provider profile not found")
+          setLoading(false)
+          return
+        }
+        setProviderProfileId(profile.id)
+        const data = await getProviderAvailability(profile.id)
+        setSchedules(data)
+      } catch (err) {
+        toast.error("Failed to load availability")
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    init()
+  }, [user])
+
+  const slots: AvailabilitySlot[] = schedules.map((s) => ({
+    id: s.id,
+    provider_id: s.provider_id,
+    date: DAY_NAMES[s.day_of_week],
+    start_time: s.start_time,
+    end_time: s.end_time,
+    is_available: s.is_active,
+  }))
+
+  async function addSlot() {
+    if (!newDate || !providerProfileId) {
       toast.error("Please select a date")
       return
     }
-    if (slots.some((s) => s.date === newDate)) {
-      toast.error("A slot already exists for this date")
+    const dayOfWeek = new Date(newDate).getDay()
+
+    if (schedules.some((s) => s.day_of_week === dayOfWeek)) {
+      toast.error("A slot already exists for this day of the week")
       return
     }
-    const newSlot: AvailabilitySlot = {
-      id: `a${Date.now()}`,
-      provider_id: user?.id || "",
-      date: newDate,
-      start_time: newStartTime,
-      end_time: newEndTime,
-      is_available: true,
+
+    const updated: CreateAvailabilitySchedule[] = [
+      ...schedules.map((s) => ({
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        is_active: s.is_active,
+      })),
+      {
+        day_of_week: dayOfWeek,
+        start_time: newStartTime,
+        end_time: newEndTime,
+        is_active: true,
+      },
+    ]
+
+    try {
+      const result = await setAvailabilitySchedules(providerProfileId, updated)
+      setSchedules(result)
+      setNewDate("")
+      toast.success("Availability slot added")
+    } catch {
+      toast.error("Failed to add slot")
     }
-    setSlots([...slots, newSlot].sort((a, b) => a.date.localeCompare(b.date)))
-    setNewDate("")
-    toast.success("Availability slot added")
   }
 
-  function removeSlot(id: string) {
-    setSlots(slots.filter((s) => s.id !== id))
-    toast.success("Slot removed")
+  async function removeSlot(id: string) {
+    if (!providerProfileId) return
+    const updated = schedules
+      .filter((s) => s.id !== id)
+      .map((s) => ({
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        is_active: s.is_active,
+      }))
+
+    try {
+      const result = await setAvailabilitySchedules(providerProfileId, updated)
+      setSchedules(result)
+      toast.success("Slot removed")
+    } catch {
+      toast.error("Failed to remove slot")
+    }
   }
 
-  function toggleSlot(id: string) {
-    setSlots(slots.map((s) => (s.id === id ? { ...s, is_available: !s.is_available } : s)))
+  async function toggleSlot(id: string) {
+    const schedule = schedules.find((s) => s.id === id)
+    if (!schedule) return
+
+    try {
+      const updated = await updateAvailabilitySchedule(id, { is_active: !schedule.is_active })
+      setSchedules((prev) => prev.map((s) => (s.id === id ? { ...s, is_active: updated.is_active } : s)))
+    } catch {
+      toast.error("Failed to update slot")
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (

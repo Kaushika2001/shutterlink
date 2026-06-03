@@ -166,12 +166,10 @@ export default function ProviderPortfolioPage() {
         display_order: items.length,
       })
 
-      if (newItem) {
-        setItems([...items, newItem])
-        setShowAddDialog(false)
-        resetForm()
-        toast.success("Portfolio item added successfully!")
-      }
+      setItems([...items, newItem])
+      setShowAddDialog(false)
+      resetForm()
+      toast.success("Portfolio item added successfully!")
     } catch (error: any) {
       console.error("Error adding portfolio item:", error)
       toast.error(error.message || "Failed to add portfolio item")
@@ -210,12 +208,10 @@ export default function ProviderPortfolioPage() {
         is_featured: isFeatured,
       })
 
-      if (updated) {
-        setItems(items.map((i) => (i.id === editingItem.id ? updated : i)))
-        setEditingItem(null)
-        resetForm()
-        toast.success("Portfolio item updated successfully!")
-      }
+      setItems(items.map((i) => (i.id === editingItem.id ? updated : i)))
+      setEditingItem(null)
+      resetForm()
+      toast.success("Portfolio item updated successfully!")
     } catch (error: any) {
       console.error("Error updating portfolio item:", error)
       toast.error(error.message || "Failed to update portfolio item")

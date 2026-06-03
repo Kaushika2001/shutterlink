@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { StarRating } from "@/components/ui/star-rating"
-import { categoryLabels } from "@/data/mock-data"
+import { categoryLabels } from "@/lib/constants"
 import type { Provider } from "@/types"
 import { MapPin, CheckCircle2 } from "lucide-react"
 

@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
-import { mockPayments, mockBookings } from "@/data/mock-data"
+import { getUserPayments } from "@/services/payments"
+import { getCustomerBookings } from "@/services/bookings"
+import type { Booking } from "@/services/bookings"
+import type { Payment } from "@/services/payments"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,22 +23,83 @@ const paymentMethods = [
   { value: "card", label: "Credit/Debit Card", description: "Visa, Mastercard, Amex" },
 ]
 
+interface PendingBookingItem {
+  id: string
+  provider_business: string
+  date: string
+  total_amount: number
+}
+
+interface PaymentItem {
+  id: string
+  booking_id: string
+  provider_name: string
+  method: string
+  transaction_ref: string
+  created_at: string
+  amount: number
+  status: string
+}
+
 export default function CustomerPaymentsPage() {
   const { user } = useAuth()
   const [selectedMethod, setSelectedMethod] = useState("onepay")
   const [isProcessing, setIsProcessing] = useState(false)
   const [showReceipt, setShowReceipt] = useState<string | null>(null)
+  const [payments, setPayments] = useState<PaymentItem[]>([])
+  const [pendingBookings, setPendingBookings] = useState<PendingBookingItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const myPayments = mockPayments.filter((p) => p.customer_id === user?.id)
-  const pendingBookings = mockBookings.filter(
-    (b) => b.customer_id === user?.id && b.status === "confirmed" && !myPayments.some((p) => p.booking_id === b.id && p.status === "completed")
-  )
+  useEffect(() => {
+    async function load() {
+      try {
+        const [allPayments, allBookings] = await Promise.all([getUserPayments(), getCustomerBookings()])
+        const mappedPayments: PaymentItem[] = allPayments.map((p) => ({
+          id: p.id,
+          booking_id: p.booking_id,
+          provider_name: "",
+          method: p.payment_method,
+          transaction_ref: p.transaction_id ?? p.id,
+          created_at: p.created_at,
+          amount: p.amount,
+          status: p.status,
+        }))
+        const mappedPending: PendingBookingItem[] = allBookings
+          .filter(
+            (b) =>
+              b.status === "confirmed" &&
+              !allPayments.some((p) => p.booking_id === b.id && p.status === "completed")
+          )
+          .map((b) => ({
+            id: b.id,
+            provider_business: b.provider_business_name ?? "",
+            date: b.service_date,
+            total_amount: b.total_price,
+          }))
+        setPayments(mappedPayments)
+        setPendingBookings(mappedPending)
+      } catch (err: any) {
+        toast.error(err.message || "Failed to load payments")
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
   async function handlePayment() {
     setIsProcessing(true)
     await new Promise((r) => setTimeout(r, 2000))
     setIsProcessing(false)
     toast.success("Payment successful!")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -120,9 +184,9 @@ export default function CustomerPaymentsPage() {
           <CardTitle className="text-base font-semibold text-card-foreground">Transaction History</CardTitle>
         </CardHeader>
         <CardContent>
-          {myPayments.length > 0 ? (
+          {payments.length > 0 ? (
             <div className="flex flex-col gap-3">
-              {myPayments.map((payment) => (
+              {payments.map((payment) => (
                 <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border p-4">
                   <div>
                     <p className="font-medium text-foreground">{payment.provider_name}</p>

@@ -112,19 +112,25 @@ export const updateReviewResponse = async (_responseId: string, _responseText: s
   throw new Error('Review response update endpoint not implemented yet');
 };
 
-export const getProviderReviewStats = async (_providerId: string): Promise<ReviewStats> => ({
-  total_reviews: 0,
-  average_rating: 0,
-  five_star_count: 0,
-  four_star_count: 0,
-  three_star_count: 0,
-  two_star_count: 0,
-  one_star_count: 0,
-  avg_professionalism: 0,
-  avg_quality: 0,
-  avg_value: 0,
-  recommend_percentage: 0,
-});
+export const getProviderReviewStats = async (providerId: string): Promise<ReviewStats> => {
+  try {
+    return await apiRequest<ReviewStats>(`/reviews/stats/${providerId}`);
+  } catch {
+    return {
+      total_reviews: 0,
+      average_rating: 0,
+      five_star_count: 0,
+      four_star_count: 0,
+      three_star_count: 0,
+      two_star_count: 0,
+      one_star_count: 0,
+      avg_professionalism: 0,
+      avg_quality: 0,
+      avg_value: 0,
+      recommend_percentage: 0,
+    };
+  }
+};
 
 export const flagReview = async (
   _reviewId: string,

@@ -66,7 +66,7 @@ export class ProviderController {
 
   async search(req: Request, res: Response): Promise<void> {
     try {
-      const { service_type, min_rating, min_price, max_price, specialization, location, page, limit } = req.query;
+      const { service_type, min_rating, min_price, max_price, specialization, location, is_verified, page, limit } = req.query;
 
       const providers = await providerService.searchProviders({
         service_type: service_type as any,
@@ -75,6 +75,7 @@ export class ProviderController {
         max_price: max_price ? Number(max_price) : undefined,
         specialization: specialization as string,
         location: location as string,
+        is_verified: is_verified ? is_verified === 'true' : undefined,
         page: page ? Number(page) : 1,
         limit: limit ? Number(limit) : 20,
       });

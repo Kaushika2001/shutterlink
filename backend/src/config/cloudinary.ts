@@ -1,8 +1,8 @@
 import { v2 as cloudinary } from 'cloudinary';
-import config from './env';
+import config, { isCloudinaryConfigured } from './env';
 
-if (!config.CLOUDINARY_CLOUD_NAME || !config.CLOUDINARY_API_KEY || !config.CLOUDINARY_API_SECRET) {
-  console.warn('Cloudinary credentials not found - portfolio uploads will fail');
+if (config.PORTFOLIO_STORAGE === 'cloudinary' && !isCloudinaryConfigured()) {
+  console.warn('PORTFOLIO_STORAGE=cloudinary but Cloudinary credentials are missing in .env');
 }
 
 cloudinary.config({

@@ -1,31 +1,87 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
-import { mockBookings, mockPayments, mockReviews } from "@/data/mock-data"
+import { getProviderBookings } from "@/services/bookings"
+import { getUserPayments } from "@/services/payments"
+import { getProviderReviews } from "@/services/reviews"
+import { getProviderProfile } from "@/services/provider"
+import { toast } from "sonner"
 import { StatCard } from "@/components/charts/stat-card"
 import { ChartCard } from "@/components/charts/chart-card"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { CalendarDays, CreditCard, Star, Users, TrendingUp } from "lucide-react"
+import { CalendarDays, CreditCard, Star, Users, TrendingUp, Loader2 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 export default function ProviderDashboard() {
   const { user } = useAuth()
-  const myBookings = mockBookings.filter((b) => b.provider_id === user?.id)
-  const myPayments = mockPayments.filter((p) => p.provider_id === user?.id)
-  const myReviews = mockReviews.filter((r) => r.provider_id === user?.id)
-  const pendingBookings = myBookings.filter((b) => b.status === "pending")
-  const confirmedBookings = myBookings.filter((b) => b.status === "confirmed")
-  const totalEarnings = myPayments.filter((p) => p.status === "completed").reduce((a, p) => a + p.amount, 0)
-  const avgRating = myReviews.length > 0 ? (myReviews.reduce((a, r) => a + r.rating, 0) / myReviews.length).toFixed(1) : "N/A"
+  const [bookings, setBookings] = useState<any[]>([])
+  const [payments, setPayments] = useState<any[]>([])
+  const [reviews, setReviews] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user) return
+
+    const loadData = async () => {
+      try {
+        const [bookingData, paymentData, profileData] = await Promise.all([
+          getProviderBookings(),
+          getUserPayments(),
+          getProviderProfile(user.id),
+        ])
+        setBookings(
+          bookingData.map((b: any) => ({
+            id: b.id,
+            customer_id: b.customer_id,
+            customer_name: b.customer_name || "Customer",
+            provider_id: b.provider_id,
+            service_category: b.package_name || "Photography",
+            date: b.service_date,
+            start_time: b.service_time,
+            location: b.location_address || b.location_type,
+            total_amount: b.total_price,
+            status: b.status,
+          }))
+        )
+        setPayments(paymentData || [])
+        if (profileData?.id) {
+          const reviewData = await getProviderReviews(profileData.id)
+          setReviews(reviewData)
+        }
+      } catch {
+        toast.error("Failed to load dashboard data")
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadData()
+  }, [user])
+
+  const pendingBookings = bookings.filter((b) => b.status === "pending")
+  const confirmedBookings = bookings.filter((b) => b.status === "confirmed")
+  const totalEarnings = bookings
+    .filter((b) => b.status === "completed" || b.status === "confirmed")
+    .reduce((a, b) => a + b.total_amount, 0)
+  const avgRating =
+    reviews.length > 0 ? (reviews.reduce((a: number, r: any) => a + (r.rating || 0), 0) / reviews.length).toFixed(1) : "N/A"
 
   const monthlyData = [
     { name: "Jan", bookings: 5, revenue: 45000 },
     { name: "Feb", bookings: 8, revenue: 72000 },
     { name: "Mar", bookings: 12, revenue: 110000 },
   ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,7 +91,7 @@ export default function ProviderDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Bookings" value={myBookings.length} change={12} trend="up" icon={<CalendarDays className="h-5 w-5" />} />
+        <StatCard title="Total Bookings" value={bookings.length} change={12} trend="up" icon={<CalendarDays className="h-5 w-5" />} />
         <StatCard title="Pending" value={pendingBookings.length} icon={<Users className="h-5 w-5" />} />
         <StatCard title="Total Earnings" value={`LKR ${totalEarnings.toLocaleString()}`} change={18} trend="up" icon={<CreditCard className="h-5 w-5" />} />
         <StatCard title="Avg Rating" value={avgRating} icon={<Star className="h-5 w-5" />} />
