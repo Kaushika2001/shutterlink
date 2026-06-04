@@ -1,5 +1,6 @@
 /**
- * Vercel serverless — all /api/* except /api/health (static file via vercel.json routes).
+ * Express fallback for routes without a thin handler (bookings, payments, admin, etc.).
+ * Hot paths use dedicated files under api/ so they avoid this bundle.
  */
 let expressHandler = null;
 
@@ -11,13 +12,13 @@ async function loadExpress() {
   return expressHandler;
 }
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
-    const handler = await loadExpress();
-    return handler(req, res);
+    const fn = await loadExpress();
+    return fn(req, res);
   } catch (err) {
-    console.error('API load error:', err);
-    res.status(503);
+    console.error('Express fallback error:', err);
+    res.statusCode = 503;
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify({
@@ -26,11 +27,9 @@ module.exports = async (req, res) => {
       })
     );
   }
-};
+}
 
-module.exports.config = {
-  api: {
-    bodyParser: false,
-  },
+export const config = {
+  api: { bodyParser: false },
   maxDuration: 10,
 };

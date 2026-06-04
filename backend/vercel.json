@@ -16,14 +16,10 @@
     {
       "src": "/api/health",
       "dest": "/health.json"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api"
     }
   ],
   "functions": {
-    "api/index.js": {
+    "api/**/*.mjs": {
       "maxDuration": 10,
       "memory": 1024
     }
