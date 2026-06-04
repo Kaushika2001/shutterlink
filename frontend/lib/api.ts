@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { getApiBaseUrl } from '@/lib/env';
+
+const API_BASE_URL = getApiBaseUrl();
 const TOKEN_KEY = 'shutterlink_token';
 
 type ApiResponse<T> = {

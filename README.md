@@ -49,12 +49,20 @@ npm install
 ```
 
 ### 3. Environment Variables
-Create a `.env.local` file in the root directory:
+
+**Local development**
+
+- `backend/.env` — copy from `backend/.env.example` (Supabase, JWT, CORS)
+- `frontend/.env.local` — copy from `frontend/.env.example`
 
 ```env
+# frontend/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
+
+**Production deploy:** see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full variable list and smoke tests.
 
 ### 4. Database Setup
 Apply the migrations in order via Supabase Dashboard SQL Editor:

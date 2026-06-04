@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/env';
 
 /* =========================
    TYPES
@@ -87,8 +88,7 @@ export interface CheckoutResponse {
 
 export async function getPaymentSandboxMode(): Promise<boolean> {
   try {
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-    const res = await fetch(`${base}/config/public`);
+    const res = await fetch(`${getApiBaseUrl()}/config/public`);
     const json = await res.json();
     return Boolean(json?.data?.payment_sandbox_mode);
   } catch {

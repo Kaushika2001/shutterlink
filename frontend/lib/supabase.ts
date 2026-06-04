@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getApiBaseUrl } from '@/lib/env';
 import { supabaseSessionStorage } from '@/lib/supabase-session';
 
 let client: SupabaseClient | null = null;
@@ -16,8 +17,7 @@ async function loadPublicConfig(): Promise<PublicConfig> {
     return { supabase_url: envUrl, supabase_anon_key: envKey };
   }
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-  const res = await fetch(`${apiBase}/config/public`);
+  const res = await fetch(`${getApiBaseUrl()}/config/public`);
   const json = await res.json();
   return json.data || { supabase_url: null, supabase_anon_key: null };
 }

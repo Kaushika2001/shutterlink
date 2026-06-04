@@ -239,7 +239,7 @@ export default function BookingConfirmationPage({ params }: { params: Promise<{ 
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Method</span>
                     <span className="text-foreground capitalize">
-                      {payment.payment_method.replace("_", " ")}
+                      {(payment.payment_method ?? "other").replace(/_/g, " ")}
                     </span>
                   </div>
                   <div className="flex justify-between">
