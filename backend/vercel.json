@@ -11,20 +11,12 @@
   ],
   "rewrites": [
     {
-      "source": "/api/health",
-      "destination": "/api/health"
-    },
-    {
       "source": "/api/(.*)",
-      "destination": "/api/express"
+      "destination": "/api"
     }
   ],
   "functions": {
-    "api/health.js": {
-      "maxDuration": 5,
-      "memory": 128
-    },
-    "api/express.js": {
+    "api/index.js": {
       "maxDuration": 10,
       "memory": 1024
     }

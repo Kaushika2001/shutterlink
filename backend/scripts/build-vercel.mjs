@@ -1,17 +1,16 @@
-import * esbuild from 'esbuild';
+import * as esbuild from 'esbuild';
 
 await esbuild.build({
   entryPoints: ['src/serverless-entry.ts'],
   bundle: true,
   platform: 'node',
   target: 'node20',
-  outfile: 'api/express.js',
+  outfile: 'api/express-bundle.cjs',
   format: 'cjs',
   sourcemap: false,
   minify: true,
   treeShaking: true,
-  // pg is listed in package.json but unused — keep it out of the bundle
   external: ['pg', 'pg-native'],
 });
 
-console.log('✓ Bundled API → api/express.js');
+console.log('✓ Bundled API → api/express-bundle.cjs');

@@ -118,4 +118,15 @@ No trailing slash. Save → backend redeploys.
 | Backend 404 | Root must be `backend`; check `backend/api/index.ts` exists |
 | Build: `tsc: command not found` | Set Install Command to `npm install --include=dev` |
 | Build stops after `npm install` | Push latest `backend/vercel.json`; confirm **Root Directory** = `backend` |
+| `FUNCTION_INVOCATION_TIMEOUT` on `/api/health` | Push latest code: `api/index.js` returns health **before** loading Express. Test `/api/health` first. |
+| Timeout on login/API routes | Vercel Hobby = 10s max. Use **Render** for backend (see below) or Vercel Pro (60s). |
+
+## If Vercel API keeps timing out — use Render (recommended for Express)
+
+1. [render.com](https://render.com) → Web Service → Root **`backend`**
+2. Build: `npm install --include=dev && npm run build` · Start: `npm start`
+3. Env: same as backend table above; `CORS_ORIGIN=https://shutterlink-pxj5.vercel.app`
+4. Frontend: `NEXT_PUBLIC_API_URL=https://YOUR-APP.onrender.com/api`
+
+Express runs continuously on Render — no 10s serverless limit.
 | Frontend still has `/api` route | Remove `frontend/api/` folder; redeploy frontend |
