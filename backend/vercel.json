@@ -1,15 +1,32 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
   "installCommand": "npm install --include=dev",
+  "buildCommand": "npm run build && npm run build:vercel",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/api/health",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/health",
+      "destination": "/api/health"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/express"
+    }
+  ],
   "functions": {
-    "api/[[...path]].ts": {
+    "api/health.js": {
+      "maxDuration": 5,
+      "memory": 128
+    },
+    "api/express.js": {
       "maxDuration": 10,
       "memory": 1024
-    },
-    "api/health.ts": {
-      "maxDuration": 5,
-      "memory": 256
     }
   }
 }
