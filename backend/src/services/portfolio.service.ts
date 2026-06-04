@@ -74,6 +74,12 @@ export class PortfolioService {
       .single();
 
     if (error || !item) throw new ValidationError(error?.message || 'Failed to create portfolio item');
+
+    await supabaseAdmin
+      .from('provider_profiles')
+      .update({ is_verified: true, availability_status: 'available' })
+      .eq('id', data.provider_id);
+
     return item;
   }
 

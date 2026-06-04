@@ -11,14 +11,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ArrowLeft, CheckCircle2, Loader2, Clock, Camera } from "lucide-react"
+import { useAuth } from "@/context/auth-context"
 import { getServicePackageById } from "@/services/packages"
-import { createBooking } from "@/services/bookings"
+import { createBooking, checkAvailability } from "@/services/bookings"
 import type { PackageWithProvider } from "@/services/packages"
 import { toast } from "sonner"
 
 export default function BookPackagePage({ params }: { params: Promise<{ providerId: string; packageId: string }> }) {
   const { providerId, packageId } = use(params)
   const router = useRouter()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [pkg, setPkg] = useState<PackageWithProvider | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -31,6 +33,12 @@ export default function BookPackagePage({ params }: { params: Promise<{ provider
   const [locationType, setLocationType] = useState<string>("on_site")
   const [locationAddress, setLocationAddress] = useState("")
   const [specialRequests, setSpecialRequests] = useState("")
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace(`/login?redirect=/book/${providerId}/${packageId}`)
+    }
+  }, [authLoading, isAuthenticated, providerId, packageId, router])
 
   useEffect(() => {
     async function loadPackage() {
@@ -59,8 +67,27 @@ export default function BookPackagePage({ params }: { params: Promise<{ provider
     }
 
     if (!pkg) return
+
+    if (!isAuthenticated) {
+      router.push(`/login?redirect=/book/${providerId}/${packageId}`)
+      return
+    }
+
     setIsSubmitting(true)
     try {
+      const providerUserId = pkg.provider?.user_id || providerId
+      const available = await checkAvailability(
+        providerUserId,
+        serviceDate,
+        serviceTime,
+        durationHours
+      )
+      if (!available) {
+        toast.error("This time slot is not available. Please choose another date or time.")
+        setIsSubmitting(false)
+        return
+      }
+
       const booking = await createBooking({
         provider_id: pkg.provider?.user_id || providerId,
         package_id: packageId,
@@ -109,10 +136,11 @@ export default function BookPackagePage({ params }: { params: Promise<{ provider
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
             <CheckCircle2 className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground">Booking Confirmed!</h2>
+          <h2 className="text-2xl font-bold text-foreground">Booking Submitted!</h2>
           <p className="mt-2 max-w-md text-muted-foreground">
             Your booking for <strong className="text-foreground">{pkg.name}</strong> on{" "}
-            <strong className="text-foreground">{serviceDate}</strong> has been submitted.
+            <strong className="text-foreground">{serviceDate}</strong> is pending payment.
+            Complete payment to confirm your booking (SRS).
           </p>
           <div className="mt-8 flex gap-3">
             <Button className="bg-primary text-primary-foreground" asChild>

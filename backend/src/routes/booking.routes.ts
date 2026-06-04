@@ -4,8 +4,8 @@ import { authenticate, authorize } from '../middleware/auth.middleware';
 
 export const bookingRoutes = Router();
 
-bookingRoutes.post('/', authenticate, authorize('customer', 'provider'), (req, res) => bookingController.createBooking(req as any, res));
-bookingRoutes.get('/customer', authenticate, authorize('customer', 'provider'), (req, res) =>
+bookingRoutes.post('/', authenticate, authorize('customer'), (req, res) => bookingController.createBooking(req as any, res));
+bookingRoutes.get('/customer', authenticate, authorize('customer'), (req, res) =>
   bookingController.getCustomerBookings(req as any, res)
 );
 bookingRoutes.get('/provider', authenticate, authorize('provider'), (req, res) =>

@@ -1,6 +1,8 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import config, { isCloudinaryConfigured } from './config/env';
+import { assertSupabaseAdminConfigured, isServiceRoleConfigured } from './config/supabase';
+import { isOnepayConfigured, isPayhereConfigured } from './services/gateways';
 import { corsConfig } from './middleware/corsConfig';
 import { errorHandler } from './middleware/errorHandler';
 import { authRoutes } from './routes/auth.routes';
@@ -30,7 +32,19 @@ app.get('/api/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     portfolio_storage: config.PORTFOLIO_STORAGE,
     cloudinary_configured: isCloudinaryConfigured(),
+    supabase_service_role: isServiceRoleConfigured(),
   });
+});
+
+app.get('/api/health/schema', async (_req: Request, res: Response) => {
+  const { supabaseAdmin } = await import('./config/supabase');
+  const tables = ['bookings', 'messages', 'notifications', 'payments'];
+  const status: Record<string, boolean> = {};
+  for (const table of tables) {
+    const { error } = await supabaseAdmin.from(table).select('id').limit(1);
+    status[table] = !error;
+  }
+  res.json({ success: true, tables: status });
 });
 
 // API Routes
@@ -56,9 +70,16 @@ app.use((req: Request, res: Response) => {
 
 const PORT = config.PORT;
 
+assertSupabaseAdminConfigured();
+
 app.listen(PORT, () => {
   console.log(`✓ Backend server running on http://localhost:${PORT}`);
   console.log(`✓ Environment: ${config.NODE_ENV}`);
+  console.log(
+    isServiceRoleConfigured()
+      ? '✓ Supabase admin client: service role (RLS bypass for API writes)'
+      : '✗ Supabase admin client: using anon key — bookings will fail RLS until SUPABASE_SERVICE_ROLE_KEY is set'
+  );
   if (config.PORTFOLIO_STORAGE === 'cloudinary') {
     console.log(
       isCloudinaryConfigured()
@@ -68,6 +89,16 @@ app.listen(PORT, () => {
   } else {
     console.log(`✓ Portfolio storage: Supabase bucket "${config.SUPABASE_BUCKET}"`);
   }
+  console.log(
+    isOnepayConfigured()
+      ? '✓ OnePay gateway configured'
+      : '○ OnePay: not configured (simulate mode for onepay)'
+  );
+  console.log(
+    isPayhereConfigured()
+      ? '✓ HelaPay/PayHere gateway configured'
+      : '○ HelaPay/PayHere: not configured (simulate mode for helapay)'
+  );
 });
 
 export default app;

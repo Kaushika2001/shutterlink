@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ProtectedRoute } from "@/components/layout/protected-route"
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar"
 import { DashboardHeader } from "@/components/layout/dashboard-header"
-import { LayoutDashboard, CalendarDays, Image, BookOpen, CreditCard, Star, Package, User } from "lucide-react"
+import { LayoutDashboard, CalendarDays, Image, BookOpen, CreditCard, Star, Package, User, Bell, MessageSquare } from "lucide-react"
 
 const providerLinks = [
   { href: "/provider", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -13,6 +13,8 @@ const providerLinks = [
   { href: "/provider/packages", label: "Packages", icon: <Package className="h-4 w-4" /> },
   { href: "/provider/calendar", label: "Availability", icon: <CalendarDays className="h-4 w-4" /> },
   { href: "/provider/portfolio", label: "Portfolio", icon: <Image className="h-4 w-4" /> },
+  { href: "/provider/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { href: "/provider/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
   { href: "/provider/earnings", label: "Earnings", icon: <CreditCard className="h-4 w-4" /> },
   { href: "/provider/reviews", label: "Reviews", icon: <Star className="h-4 w-4" /> },
 ]

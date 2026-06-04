@@ -12,7 +12,7 @@ export class AuthController {
         email: emailSchema,
         password: passwordSchema,
         name: z.string().min(2),
-        role: z.enum(['customer', 'provider', 'admin']),
+        role: z.enum(['customer', 'provider']),
         phone: z.string().optional(),
       });
 
@@ -124,11 +124,12 @@ export class AuthController {
     try {
       const { email } = validateSchema<{ email: string }>(z.object({ email: emailSchema }), req.body);
 
-      await authService.requestPasswordReset(email);
+      const result = await authService.requestPasswordReset(email);
 
       res.status(200).json({
         success: true,
-        message: 'Password reset email sent',
+        message: result.message,
+        data: result.resetToken ? { resetToken: result.resetToken } : undefined,
       });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({

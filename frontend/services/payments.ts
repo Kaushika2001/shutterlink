@@ -7,13 +7,16 @@ import { apiRequest } from '@/lib/api';
 export interface Payment {
   id: string;
   booking_id: string;
-  payer_id: string;
+  customer_id?: string;
+  payer_id?: string;
+  provider_name?: string | null;
+  booking_number?: string | null;
   amount: number;
-  payment_type: 'deposit' | 'full_payment' | 'refund';
-  payment_method: string;
+  payment_type?: 'deposit' | 'full_payment' | 'refund' | string;
+  payment_method?: string;
   payment_gateway?: string;
   transaction_id?: string;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  status: 'pending' | 'completed' | 'failed' | 'refunded' | string;
   payment_date?: string;
   failure_reason?: string;
   metadata?: Record<string, any>;
@@ -67,6 +70,46 @@ export interface EarningsSummary {
 export const createPayment = async (paymentData: CreatePaymentData): Promise<Payment> => {
   return await apiRequest<Payment>('/payments', { method: 'POST', body: JSON.stringify(paymentData) }, true);
 };
+
+export interface CheckoutResponse {
+  payment: Payment;
+  amount: number;
+  payment_method: string;
+  mode?: 'redirect' | 'simulate';
+  redirect_url?: string;
+  gateway_configured?: boolean;
+  message?: string;
+}
+
+export const checkoutPayment = async (
+  bookingId: string,
+  paymentMethod: string
+): Promise<CheckoutResponse> =>
+  apiRequest<CheckoutResponse>(
+    '/payments/checkout',
+    {
+      method: 'POST',
+      body: JSON.stringify({ booking_id: bookingId, payment_method: paymentMethod }),
+    },
+    true
+  );
+
+export const syncPaymentStatus = async (paymentId: string): Promise<Payment> =>
+  apiRequest<Payment>(`/payments/${paymentId}/status`, {}, true);
+
+export const completePayment = async (
+  paymentId: string,
+  paymentMethod: string,
+  transactionRef?: string
+): Promise<Payment> =>
+  apiRequest<Payment>(
+    `/payments/${paymentId}/complete`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ payment_method: paymentMethod, transaction_ref: transactionRef }),
+    },
+    true
+  );
 
 /* =========================
    GET PAYMENTS

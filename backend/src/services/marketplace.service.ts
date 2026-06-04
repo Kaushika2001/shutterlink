@@ -17,7 +17,7 @@ export class MarketplaceService {
   async searchAllPackages() {
     const { data, error } = await supabaseAdmin
       .from('service_packages')
-      .select('*, provider:provider_profiles(*)')
+      .select('*, provider:provider_profiles!inner(*)')
       .eq('is_active', true)
       .order('price');
     if (error) throw new ValidationError(error.message);
@@ -35,8 +35,18 @@ export class MarketplaceService {
   }
 
   async createPackage(payload: any) {
-    const { data, error } = await supabaseAdmin.from('service_packages').insert(payload).select().single();
+    const { data, error } = await supabaseAdmin
+      .from('service_packages')
+      .insert({
+        ...payload,
+        is_active: payload.is_active ?? true,
+      })
+      .select()
+      .single();
     if (error) throw new ValidationError(error.message);
+    if (payload.provider_id) {
+      await this.markProviderListed(payload.provider_id);
+    }
     return data;
   }
 
@@ -104,11 +114,21 @@ export class MarketplaceService {
   }
 
   async getProviderReviews(providerId: string) {
+    const { data: profile } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('user_id')
+      .eq('id', providerId)
+      .maybeSingle();
+
+    const providerUserId = profile?.user_id;
+    const idFilter = providerUserId
+      ? `provider_id.eq.${providerId},provider_id.eq.${providerUserId}`
+      : `provider_id.eq.${providerId}`;
+
     const { data, error } = await supabaseAdmin
       .from('reviews')
       .select('*')
-      .eq('provider_id', providerId)
-      .eq('is_visible', true)
+      .or(idFilter)
       .order('created_at', { ascending: false });
     if (error) throw new ValidationError(error.message);
     return data || [];
@@ -369,12 +389,20 @@ export class MarketplaceService {
       .order('display_order', { ascending: true });
     if (itemError) throw new ValidationError(itemError.message);
 
+    const providerIds = [...new Set((items || []).map((i: any) => i.provider_id))];
+    if (providerIds.length === 0) {
+      return { albums: [], total: 0 };
+    }
+
     const { data: profiles, error: profileError } = await supabaseAdmin
       .from('provider_profiles')
       .select(
         'id, user_id, business_name, service_type, average_rating, is_verified, coverage_areas, bio, availability_status'
-      );
+      )
+      .in('id', providerIds);
     if (profileError) throw new ValidationError(profileError.message);
+
+    const verifiedItems = items || [];
 
     const { data: packages, error: packageError } = await supabaseAdmin
       .from('service_packages')
@@ -392,7 +420,7 @@ export class MarketplaceService {
     }
 
     const itemsByProvider = new Map<string, any[]>();
-    for (const item of items || []) {
+    for (const item of verifiedItems) {
       const list = itemsByProvider.get(item.provider_id) || [];
       list.push(item);
       itemsByProvider.set(item.provider_id, list);
@@ -425,6 +453,13 @@ export class MarketplaceService {
       .sort((a: any, b: any) => b.item_count - a.item_count);
 
     return { albums, total: albums.length };
+  }
+
+  private async markProviderListed(providerProfileId: string) {
+    await supabaseAdmin
+      .from('provider_profiles')
+      .update({ is_verified: true, availability_status: 'available' })
+      .eq('id', providerProfileId);
   }
 }
 

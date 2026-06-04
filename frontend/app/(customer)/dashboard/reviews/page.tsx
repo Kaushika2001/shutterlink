@@ -35,8 +35,8 @@ export default function CustomerReviewsPage() {
         ])
         setMyReviews(reviewsData)
         setPendingReviews(pendingData)
-      } catch (error) {
-        console.error('Error fetching reviews:', error)
+      } catch (error: any) {
+        toast.error(error?.message || "Failed to load reviews")
       } finally {
         setLoading(false)
       }
@@ -45,7 +45,7 @@ export default function CustomerReviewsPage() {
     fetchReviews()
   }, [user])
 
-  async function handleSubmitReview(bookingId: string, providerId: string) {
+  async function handleSubmitReview(bookingId: string) {
     if (rating === 0) {
       toast.error("Please select a rating")
       return
@@ -56,7 +56,7 @@ export default function CustomerReviewsPage() {
       
       const reviewData: CreateReviewData = {
         booking_id: bookingId,
-        provider_id: providerId,
+        provider_id: "",
         rating: rating,
         comment: comment || undefined,
         would_recommend: rating >= 4,
@@ -142,7 +142,7 @@ export default function CustomerReviewsPage() {
                       />
                     </div>
                     <Button
-                      onClick={() => handleSubmitReview(booking.id, booking.provider_id)}
+                      onClick={() => handleSubmitReview(booking.id)}
                       disabled={isSubmitting || rating === 0}
                       className="bg-primary text-primary-foreground"
                     >
@@ -167,7 +167,9 @@ export default function CustomerReviewsPage() {
               {myReviews.map((review) => (
                 <div key={review.id} className="rounded-lg border border-border p-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="font-medium text-foreground">{review.provider_name || "Provider"}</p>
+                    <p className="font-medium text-foreground">
+                      {review.provider_name || (review as any).provider_business_name || "Provider"}
+                    </p>
                     <StarRating rating={review.rating} size={14} />
                   </div>
                   {review.comment && (

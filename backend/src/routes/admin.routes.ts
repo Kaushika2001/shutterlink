@@ -13,3 +13,7 @@ adminRoutes.get('/bookings', ...adminAuth, (req, res) => adminController.getBook
 adminRoutes.get('/payments', ...adminAuth, (req, res) => adminController.getPayments(req as any, res));
 adminRoutes.get('/reports', ...adminAuth, (req, res) => adminController.getRecentBookings(req as any, res));
 adminRoutes.put('/users/:userId/status', ...adminAuth, (req, res) => adminController.updateUserStatus(req as any, res));
+adminRoutes.put('/providers/:providerId/verify', ...adminAuth, (req, res) => adminController.verifyProvider(req as any, res));
+adminRoutes.put('/providers/:providerId/revoke', ...adminAuth, (req, res) => adminController.revokeProvider(req as any, res));
+adminRoutes.get('/disputes', ...adminAuth, (req, res) => adminController.getDisputes(req as any, res));
+adminRoutes.put('/disputes/:disputeId', ...adminAuth, (req, res) => adminController.updateDispute(req as any, res));

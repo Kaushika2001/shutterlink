@@ -7,7 +7,8 @@
     "dev": "ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "reset-test-data": "ts-node scripts/reset-test-data.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.4",

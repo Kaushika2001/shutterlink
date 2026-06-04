@@ -46,6 +46,30 @@ export default function AdminProvidersPage() {
   const [approvalFilter, setApprovalFilter] = useState<string>("all")
   const [selectedProvider, setSelectedProvider] = useState<any>(null)
 
+  async function handleVerify(providerId: string, name: string) {
+    try {
+      await apiRequest(`/admin/providers/${providerId}/verify`, { method: 'PUT' }, true)
+      setProviders((prev) =>
+        prev.map((p) => (p.id === providerId ? { ...p, is_approved: true, is_verified: true } : p))
+      )
+      toast.success(`${name} verified`)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to verify provider')
+    }
+  }
+
+  async function handleRevoke(providerId: string, name: string) {
+    try {
+      await apiRequest(`/admin/providers/${providerId}/revoke`, { method: 'PUT' }, true)
+      setProviders((prev) =>
+        prev.map((p) => (p.id === providerId ? { ...p, is_approved: false, is_verified: false } : p))
+      )
+      toast.error(`${name} verification revoked`)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to revoke verification')
+    }
+  }
+
   useEffect(() => {
     const fetchProviders = async () => {
       try {
@@ -205,14 +229,14 @@ export default function AdminProvidersPage() {
                             View Details
                           </DropdownMenuItem>
                           {!provider.is_approved ? (
-                            <DropdownMenuItem onClick={() => toast.success(`${provider.business_name} approved`)}>
+                            <DropdownMenuItem onClick={() => handleVerify(provider.id, provider.business_name)}>
                               <CheckCircle className="mr-2 h-3.5 w-3.5" />
                               Approve Provider
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
-                              onClick={() => toast.error(`${provider.business_name} approval revoked`)}
+                              onClick={() => handleRevoke(provider.id, provider.business_name)}
                             >
                               <XCircle className="mr-2 h-3.5 w-3.5" />
                               Revoke Approval
@@ -287,7 +311,7 @@ export default function AdminProvidersPage() {
                     <Button
                       className="flex-1"
                       onClick={() => {
-                        toast.success(`${selectedProvider.business_name} approved`)
+                        handleVerify(selectedProvider.id, selectedProvider.business_name)
                         setSelectedProvider(null)
                       }}
                     >
@@ -299,7 +323,7 @@ export default function AdminProvidersPage() {
                       variant="destructive"
                       className="flex-1"
                       onClick={() => {
-                        toast.error(`${selectedProvider.business_name} approval revoked`)
+                        handleRevoke(selectedProvider.id, selectedProvider.business_name)
                         setSelectedProvider(null)
                       }}
                     >

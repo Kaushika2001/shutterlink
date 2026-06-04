@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api';
+import { getUserPayments } from '@/services/payments';
 
 /* =========================
    TYPES
@@ -6,11 +7,11 @@ import { apiRequest } from '@/lib/api';
 
 export interface Booking {
   id: string;
-  booking_number: string;
+  booking_number?: string;
   customer_id: string;
   provider_id: string;
   package_id: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'rejected';
   service_date: string;
   service_time: string;
   duration_hours: number;
@@ -89,6 +90,17 @@ export const getUpcomingBookings = async (): Promise<Booking[]> => {
 // Get booking history (completed or cancelled)
 export const getBookingHistory = async (): Promise<Booking[]> => {
   return await apiRequest<Booking[]>('/bookings/history?isProvider=false', {}, true);
+};
+
+// Get bookings that need payment
+export const getPendingPaymentBookings = async (): Promise<Booking[]> => {
+  const [bookings, payments] = await Promise.all([getCustomerBookings(), getUserPayments()]);
+  return bookings.filter(
+    (b) =>
+      b.status === 'pending' &&
+      !b.deposit_paid &&
+      !payments.some((p) => p.booking_id === b.id && p.status === 'completed')
+  );
 };
 
 // Get single booking by ID

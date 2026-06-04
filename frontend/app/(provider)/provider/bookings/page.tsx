@@ -35,14 +35,15 @@ export default function ProviderBookingsPage() {
 
   const filtered = statusFilter === "all" ? bookings : bookings.filter((b) => b.status === statusFilter)
 
-  async function handleAction(bookingId: string, action: "confirmed" | "rejected") {
+  async function handleAction(bookingId: string, action: "accept" | "reject") {
     setLoadingId(bookingId)
     try {
-      const updated = action === "confirmed" ? await confirmBooking(bookingId) : await rejectBooking(bookingId)
+      const updated = action === "accept" ? await confirmBooking(bookingId) : await rejectBooking(bookingId)
       setBookings((prev) => prev.map((b) => (b.id === bookingId ? updated : b)))
-      toast.success(`Booking ${action === "confirmed" ? "accepted" : "rejected"}`)
-    } catch {
-      toast.error(`Failed to ${action} booking`)
+      toast.success(`Booking ${action === "accept" ? "accepted" : "rejected"}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Request failed"
+      toast.error(message)
     } finally {
       setLoadingId(null)
     }
@@ -77,6 +78,7 @@ export default function ProviderBookingsPage() {
             <SelectItem value="confirmed">Confirmed</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -114,7 +116,7 @@ export default function ProviderBookingsPage() {
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          onClick={() => handleAction(booking.id, "confirmed")}
+                          onClick={() => handleAction(booking.id, "accept")}
                           disabled={loadingId === booking.id}
                           className="bg-emerald-600 text-white hover:bg-emerald-700"
                         >
@@ -124,7 +126,7 @@ export default function ProviderBookingsPage() {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleAction(booking.id, "rejected")}
+                          onClick={() => handleAction(booking.id, "reject")}
                           disabled={loadingId === booking.id}
                         >
                           <X className="mr-1 h-3 w-3" /> Reject

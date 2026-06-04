@@ -39,10 +39,7 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
     async function loadProviderData() {
       try {
         setLoading(true)
-        const [providerData, reviewsData] = await Promise.all([
-          getProviderWithDetails(id),
-          getProviderReviews(id)
-        ])
+        const providerData = await getProviderWithDetails(id)
         
         if (!providerData) {
           toast.error('Provider not found')
@@ -50,7 +47,13 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
         }
         
         setProvider(providerData)
-        setReviews(reviewsData)
+
+        try {
+          const reviewsData = await getProviderReviews(id)
+          setReviews(reviewsData)
+        } catch {
+          setReviews([])
+        }
       } catch (error: any) {
         console.error('Failed to load provider:', error)
         toast.error('Failed to load provider details')

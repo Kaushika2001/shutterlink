@@ -169,7 +169,7 @@ export default function ProviderPortfolioPage() {
       setItems([...items, newItem])
       setShowAddDialog(false)
       resetForm()
-      toast.success("Portfolio item added successfully!")
+      toast.success("Portfolio added! View it on Explore → Portfolio Albums.")
     } catch (error: any) {
       console.error("Error adding portfolio item:", error)
       toast.error(error.message || "Failed to add portfolio item")

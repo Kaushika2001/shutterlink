@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      await authService.resetPassword(email)
+      await authService.requestPasswordReset(email)
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message || 'Password reset failed' }

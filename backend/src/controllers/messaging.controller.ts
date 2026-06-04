@@ -24,8 +24,12 @@ export class MessagingController {
 
   async getBookingMessages(req: AuthRequest, res: Response): Promise<void> {
     try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
       const { bookingId } = req.params;
-      const messages = await messagingService.getBookingMessages(bookingId);
+      const messages = await messagingService.getBookingMessages(bookingId, req.userId);
       res.status(200).json({ success: true, data: messages });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });

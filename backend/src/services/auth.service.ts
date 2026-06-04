@@ -130,12 +130,46 @@ export class AuthService {
     // This can be extended with a token blacklist if needed.
   }
 
-  async requestPasswordReset(email: string): Promise<void> {
-    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email.toLowerCase());
+  async requestPasswordReset(email: string): Promise<{ message: string; resetToken?: string }> {
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
 
-    if (error) {
-      throw new ValidationError('Failed to send password reset email');
+    if (!user) {
+      return { message: 'If that email exists, a reset link has been sent' };
     }
+
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2, 15)}`;
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    await supabaseAdmin.from('password_resets').delete().eq('user_id', user.id);
+
+    const { error: tokenError } = await supabaseAdmin.from('password_resets').insert({
+      user_id: user.id,
+      token,
+      expires_at: expiresAt,
+    });
+
+    if (tokenError) {
+      await supabaseAdmin.auth.resetPasswordForEmail(email.toLowerCase());
+      return { message: 'If that email exists, a reset link has been sent' };
+    }
+
+    try {
+      await supabaseAdmin.auth.resetPasswordForEmail(email.toLowerCase());
+    } catch {
+      /* optional email */
+    }
+
+    const response: { message: string; resetToken?: string } = {
+      message: 'If that email exists, a reset link has been sent',
+    };
+    if (process.env.NODE_ENV === 'development') {
+      response.resetToken = token;
+    }
+    return response;
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {

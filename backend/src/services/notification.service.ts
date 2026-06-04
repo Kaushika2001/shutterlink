@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase';
 import { ValidationError } from '../utils/errors';
+import { isMissingTableError } from '../utils/supabaseErrors';
 
 export class NotificationService {
   async createNotification(data: {
@@ -9,6 +10,9 @@ export class NotificationService {
     message: string;
     data?: Record<string, any>;
   }) {
+    const bookingId =
+      data.data && typeof data.data.booking_id === 'string' ? data.data.booking_id : null;
+
     const { data: notification, error } = await supabaseAdmin
       .from('notifications')
       .insert({
@@ -17,11 +21,15 @@ export class NotificationService {
         title: data.title,
         message: data.message,
         data: data.data || null,
+        related_id: bookingId,
       })
       .select()
       .single();
 
-    if (error || !notification) throw new ValidationError('Failed to create notification');
+    if (error || !notification) {
+      if (isMissingTableError(error)) return null;
+      throw new ValidationError('Failed to create notification');
+    }
     return notification;
   }
 
@@ -33,7 +41,10 @@ export class NotificationService {
       .range(offset, offset + limit - 1)
       .order('created_at', { ascending: false });
 
-    if (error) throw new ValidationError('Failed to fetch notifications');
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      throw new ValidationError(error.message || 'Failed to fetch notifications');
+    }
     return data || [];
   }
 

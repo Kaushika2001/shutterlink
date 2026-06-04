@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
-import { CalendarDays, MapPin, Clock, Search } from "lucide-react"
+import { CalendarDays, MapPin, Clock, Search, CreditCard, MessageSquare } from "lucide-react"
+import { toast } from "sonner"
 
 export default function CustomerBookingsPage() {
   const { user } = useAuth()
@@ -26,8 +27,8 @@ export default function CustomerBookingsPage() {
         setLoading(true)
         const data = await getCustomerBookings()
         setBookings(data)
-      } catch (error) {
-        console.error('Error fetching bookings:', error)
+      } catch (error: any) {
+        toast.error(error?.message || "Failed to load bookings")
       } finally {
         setLoading(false)
       }
@@ -124,12 +125,29 @@ export default function CustomerBookingsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-foreground">LKR {booking.total_price.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">Booked {new Date(booking.created_at).toLocaleDateString()}</p>
-                    {booking.status === "completed" && (
-                      <Button variant="outline" size="sm" className="mt-2" asChild>
-                        <Link href="/dashboard/reviews">Leave Review</Link>
+                    <p className="text-xs text-muted-foreground">
+                      {booking.booking_number && `${booking.booking_number} · `}
+                      Booked {new Date(booking.created_at).toLocaleDateString()}
+                    </p>
+                    <div className="mt-2 flex flex-wrap justify-end gap-2">
+                      {booking.status === "pending" && !booking.deposit_paid && (
+                        <Button size="sm" className="bg-primary text-primary-foreground" asChild>
+                          <Link href="/dashboard/payments">
+                            <CreditCard className="mr-1 h-3 w-3" /> Pay
+                          </Link>
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/dashboard/messages?booking=${booking.id}`}>
+                          <MessageSquare className="mr-1 h-3 w-3" /> Message
+                        </Link>
                       </Button>
-                    )}
+                      {booking.status === "completed" && (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href="/dashboard/reviews">Review</Link>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

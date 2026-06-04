@@ -38,13 +38,13 @@ export function PortfolioAlbumCard({ album }: PortfolioAlbumCardProps) {
               {album.package_count > 0 && ` · ${album.package_count} packages`}
             </p>
           </div>
-          {provider.is_verified && (
-            <div className="absolute left-3 top-3">
+          <div className="absolute left-3 top-3">
+            {provider.is_verified && (
               <span className="flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground backdrop-blur-sm">
                 <CheckCircle2 className="h-3 w-3" /> Verified
               </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         <CardContent className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">

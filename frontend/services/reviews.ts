@@ -70,12 +70,28 @@ export interface ReviewStats {
 }
 
 export const createReview = async (reviewData: CreateReviewData): Promise<Review> =>
-  apiRequest<Review>('/reviews', { method: 'POST', body: JSON.stringify(reviewData) }, true);
+  apiRequest<Review>(
+    '/reviews',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        booking_id: reviewData.booking_id,
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+      }),
+    },
+    true
+  );
 
 export const getUserReviews = async (): Promise<Review[]> => apiRequest<Review[]>('/reviews/me', {}, true);
 
-export const getProviderReviews = async (providerId: string): Promise<Review[]> =>
-  apiRequest<Review[]>(`/reviews/provider/${providerId}`);
+export const getProviderReviews = async (providerId: string): Promise<Review[]> => {
+  try {
+    return await apiRequest<Review[]>(`/reviews/provider/${providerId}`);
+  } catch {
+    return [];
+  }
+};
 
 export const getPendingReviews = async (): Promise<any[]> => apiRequest<any[]>('/reviews/pending', {}, true);
 

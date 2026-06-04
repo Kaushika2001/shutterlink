@@ -122,8 +122,13 @@ export class BookingController {
 
   async confirmBooking(req: AuthRequest, res: Response): Promise<void> {
     try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
       const { bookingId } = req.params;
-      const booking = await bookingService.confirmBooking(bookingId);
+      const booking = await bookingService.confirmBooking(bookingId, req.userId);
 
       res.status(200).json({ success: true, data: booking, message: 'Booking confirmed' });
     } catch (error: any) {
@@ -133,8 +138,13 @@ export class BookingController {
 
   async completeBooking(req: AuthRequest, res: Response): Promise<void> {
     try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
       const { bookingId } = req.params;
-      const booking = await bookingService.completeBooking(bookingId);
+      const booking = await bookingService.completeBooking(bookingId, req.userId);
 
       res.status(200).json({ success: true, data: booking, message: 'Booking completed' });
     } catch (error: any) {
@@ -162,8 +172,13 @@ export class BookingController {
 
   async rejectBooking(req: AuthRequest, res: Response): Promise<void> {
     try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
       const { bookingId } = req.params;
-      const booking = await bookingService.rejectBooking(bookingId);
+      const booking = await bookingService.rejectBooking(bookingId, req.userId);
 
       res.status(200).json({ success: true, data: booking, message: 'Booking rejected' });
     } catch (error: any) {

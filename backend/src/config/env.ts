@@ -1,6 +1,25 @@
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
-dotenv.config();
+function loadEnvFile() {
+  const candidates = [
+    path.join(process.cwd(), '.env'),
+    path.join(process.cwd(), 'backend', '.env'),
+    path.join(__dirname, '..', '.env'),
+    path.join(__dirname, '..', '..', '.env'),
+  ];
+  for (const envPath of candidates) {
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      return envPath;
+    }
+  }
+  dotenv.config();
+  return null;
+}
+
+loadEnvFile();
 
 export const config = {
   NODE_ENV: process.env.NODE_ENV || 'development',
@@ -20,6 +39,19 @@ export const config = {
   CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET || 'shutterlink_portfolio',
   /** Portfolio image storage: "cloudinary" (default) or "supabase" */
   PORTFOLIO_STORAGE: (process.env.PORTFOLIO_STORAGE || 'cloudinary').toLowerCase(),
+  // OnePay — https://developer.onepay.lk
+  ONEPAY_APP_ID: process.env.ONEPAY_APP_ID || '',
+  ONEPAY_APP_TOKEN: process.env.ONEPAY_APP_TOKEN || '',
+  ONEPAY_HASH_SALT: process.env.ONEPAY_HASH_SALT || '',
+  ONEPAY_HASH_TOKEN: process.env.ONEPAY_HASH_TOKEN || '',
+  // PayHere (HelaPay / card IPG) — https://support.payhere.lk
+  PAYHERE_MERCHANT_ID: process.env.PAYHERE_MERCHANT_ID || '',
+  PAYHERE_MERCHANT_SECRET: process.env.PAYHERE_MERCHANT_SECRET || '',
+  PAYHERE_SANDBOX: process.env.PAYHERE_SANDBOX !== 'false',
+  PAYMENT_WEBHOOK_BASE_URL: process.env.PAYMENT_WEBHOOK_BASE_URL || 'http://localhost:5000',
+  PAYMENT_RETURN_URL:
+    process.env.PAYMENT_RETURN_URL || `${process.env.CORS_ORIGIN || 'http://localhost:3000'}/dashboard/payments/return`,
+  PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || '',
 };
 
 export const isCloudinaryConfigured = (): boolean =>

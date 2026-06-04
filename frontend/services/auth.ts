@@ -80,12 +80,19 @@ export const getUserById = async (userId: string) => {
 /* =========================
    RESET PASSWORD
 ========================= */
-export const resetPassword = async (email: string) => {
-  await apiRequest(
+export const requestPasswordReset = async (email: string) => {
+  return await apiRequest<{ resetToken?: string }>(
     '/auth/request-password-reset',
     {
       method: 'POST',
       body: JSON.stringify({ email }),
     }
   );
+};
+
+export const resetPasswordWithToken = async (token: string, newPassword: string) => {
+  await apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
 };

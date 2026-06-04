@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 import { CalendarDays, CreditCard, Clock, Search } from "lucide-react"
+import { toast } from "sonner"
 import { useEffect, useState } from "react"
 import { getCustomerBookings, type Booking } from "@/services/bookings"
 import { getUserPayments, type Payment } from "@/services/payments"
@@ -30,8 +31,8 @@ export default function CustomerDashboard() {
         ])
         setBookings(bookingsData)
         setPayments(paymentsData)
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error)
+      } catch (error: any) {
+        toast.error(error?.message || "Failed to load dashboard")
       } finally {
         setLoading(false)
       }
@@ -41,7 +42,7 @@ export default function CustomerDashboard() {
   }, [user])
 
   const pendingBookings = bookings.filter((b) => b.status === "pending")
-  const confirmedBookings = bookings.filter((b) => b.status === "confirmed")
+  const confirmedBookings = bookings.filter((b) => b.status === "confirmed" || b.status === "pending")
   const totalSpent = payments.filter((p) => p.status === "completed").reduce((a, p) => a + p.amount, 0)
 
   if (loading) {
@@ -81,7 +82,7 @@ export default function CustomerDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="border-border bg-card">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-semibold text-card-foreground">Upcoming Bookings</CardTitle>
+            <CardTitle className="text-base font-semibold text-card-foreground">Active Bookings</CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard/bookings" className="text-primary">View all</Link>
             </Button>
@@ -100,7 +101,7 @@ export default function CustomerDashboard() {
                 ))}
               </div>
             ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">No upcoming bookings</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No active bookings</p>
             )}
           </CardContent>
         </Card>

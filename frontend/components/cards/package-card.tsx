@@ -36,7 +36,7 @@ export function PackageCard({ pkg, coverImageUrl }: PackageCardProps) {
               <Camera className="h-12 w-12 text-muted-foreground/40" />
             </div>
           )}
-          <div className="absolute right-3 top-3">
+          <div className="absolute right-3 top-3 flex flex-col items-end gap-1">
             <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary backdrop-blur-sm">
               {serviceTypeLabels[pkg.service_type] || pkg.service_type}
             </span>

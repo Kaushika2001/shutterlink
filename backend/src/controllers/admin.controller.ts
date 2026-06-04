@@ -68,6 +68,50 @@ export class AdminController {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }
   }
+
+  async verifyProvider(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      await adminService.verifyProvider(req.params.providerId, req.userId!);
+      res.status(200).json({ success: true, message: 'Provider verified' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  async revokeProvider(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const data = await adminService.revokeProviderVerification(req.params.providerId, req.userId!);
+      res.status(200).json({ success: true, data, message: 'Provider verification revoked' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  async getDisputes(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { disputeService } = await import('../services/dispute.service');
+      const data = await disputeService.getDisputes(req.query.status as string | undefined);
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  async updateDispute(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { disputeService } = await import('../services/dispute.service');
+      const { status, resolution_notes } = req.body;
+      const data = await disputeService.updateDisputeStatus(
+        req.params.disputeId,
+        status,
+        resolution_notes,
+        req.userId
+      );
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
 }
 
 export const adminController = new AdminController();

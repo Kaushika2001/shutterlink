@@ -4,13 +4,15 @@ import { useState } from "react"
 import { ProtectedRoute } from "@/components/layout/protected-route"
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar"
 import { DashboardHeader } from "@/components/layout/dashboard-header"
-import { LayoutDashboard, CalendarDays, Clock, CreditCard, Star } from "lucide-react"
+import { LayoutDashboard, CalendarDays, Clock, CreditCard, Star, Bell, MessageSquare } from "lucide-react"
 
 const customerLinks = [
   { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" /> },
   { href: "/dashboard/bookings", label: "My Bookings", icon: <CalendarDays className="h-4 w-4" /> },
   { href: "/dashboard/history", label: "History", icon: <Clock className="h-4 w-4" /> },
   { href: "/dashboard/payments", label: "Payments", icon: <CreditCard className="h-4 w-4" /> },
+  { href: "/dashboard/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" /> },
+  { href: "/dashboard/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
   { href: "/dashboard/reviews", label: "My Reviews", icon: <Star className="h-4 w-4" /> },
 ]
 

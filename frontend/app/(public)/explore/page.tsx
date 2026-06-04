@@ -42,6 +42,7 @@ function ExploreContent() {
   const [priceRange, setPriceRange] = useState([0, 100000])
   const [minRating, setMinRating] = useState("0")
   const [portfolioCategory, setPortfolioCategory] = useState("all")
+  const [availabilityOnly, setAvailabilityOnly] = useState(false)
 
   useEffect(() => {
     async function loadPackages() {
@@ -114,6 +115,10 @@ function ExploreContent() {
       return false
     }
 
+    if (availabilityOnly && provider?.availability_status !== "available") {
+      return false
+    }
+
     return true
   })
 
@@ -136,6 +141,10 @@ function ExploreContent() {
       return false
     }
 
+    if (availabilityOnly && provider.availability_status !== "available") {
+      return false
+    }
+
     if (
       portfolioCategory !== "all" &&
       !album.categories.includes(portfolioCategory)
@@ -152,6 +161,7 @@ function ExploreContent() {
     setPriceRange([0, 100000])
     setMinRating("0")
     setPortfolioCategory("all")
+    setAvailabilityOnly(false)
   }
 
   const hasActiveFilters =
@@ -159,7 +169,8 @@ function ExploreContent() {
     priceRange[0] > 0 ||
     priceRange[1] < 100000 ||
     minRating !== "0" ||
-    portfolioCategory !== "all"
+    portfolioCategory !== "all" ||
+    availabilityOnly
 
   const loading = activeTab === "packages" ? loadingPackages : loadingAlbums
   const resultCount =
@@ -218,6 +229,15 @@ function ExploreContent() {
           </Select>
         </div>
       )}
+      <div className="flex items-center justify-between rounded-lg border border-border p-3">
+        <Label className="text-sm font-medium text-foreground">Available providers only</Label>
+        <input
+          type="checkbox"
+          checked={availabilityOnly}
+          onChange={(e) => setAvailabilityOnly(e.target.checked)}
+          className="h-4 w-4 accent-primary"
+        />
+      </div>
       <div className="flex flex-col gap-2">
         <Label className="text-sm font-medium text-foreground">Minimum Rating</Label>
         <Select value={minRating} onValueChange={setMinRating}>

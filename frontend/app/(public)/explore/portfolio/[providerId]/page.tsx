@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { getProviderWithDetails } from "@/services/provider"
 import { getProviderReviews } from "@/services/reviews"
+import { getPortfolioItems } from "@/services/portfolio"
 import type { PackageWithProvider } from "@/services/packages"
 import type { PortfolioItem } from "@/services/portfolio"
 import { toast } from "sonner"
@@ -40,16 +41,22 @@ export default function ExplorePortfolioAlbumPage({
     async function load() {
       try {
         setLoading(true)
-        const [providerData, reviewsData] = await Promise.all([
-          getProviderWithDetails(providerId),
-          getProviderReviews(providerId),
-        ])
+        const providerData = await getProviderWithDetails(providerId)
         if (!providerData) {
           toast.error("Portfolio not found")
           return
         }
+
+        if (!providerData.portfolio_items?.length) {
+          try {
+            providerData.portfolio_items = await getPortfolioItems(providerId)
+          } catch {
+            providerData.portfolio_items = []
+          }
+        }
+
         setProvider(providerData)
-        setReviews(reviewsData)
+        setReviews(await getProviderReviews(providerId))
       } catch {
         toast.error("Failed to load portfolio")
       } finally {
@@ -144,7 +151,7 @@ export default function ExplorePortfolioAlbumPage({
         <div className="border-b border-border bg-card">
           <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
             <Link
-              href="/explore"
+              href="/explore?tab=portfolios"
               className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" /> Back to Explore

@@ -9,7 +9,8 @@ export interface Message {
   is_read: boolean;
   read_at?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  sender_name?: string | null;
 }
 
 export interface CreateMessageData {
@@ -24,34 +25,17 @@ export const sendMessage = async (data: CreateMessageData): Promise<Message> =>
 export const getBookingMessages = async (bookingId: string): Promise<Message[]> =>
   apiRequest<Message[]>(`/messages/booking/${bookingId}`, {}, true);
 
-export const getConversations = async (): Promise<
-  Array<{
-    booking_id: string;
-    other_user_id: string;
-    last_message: string;
-    last_message_time: string;
-    unread_count: number;
-    other_user_name?: string;
-  }>
-> => {
-  const messages = await apiRequest<Message[]>('/messages/conversations', {}, true);
-  const map = new Map<string, any>();
+export interface Conversation {
+  booking_id: string;
+  other_user_id: string;
+  other_user_name?: string | null;
+  last_message: string;
+  last_message_time: string;
+  unread_count: number;
+}
 
-  for (const message of messages) {
-    const key = message.booking_id;
-    if (!map.has(key)) {
-      map.set(key, {
-        booking_id: message.booking_id,
-        other_user_id: message.sender_id,
-        last_message: message.message,
-        last_message_time: message.created_at,
-        unread_count: 0,
-      });
-    }
-  }
-
-  return Array.from(map.values());
-};
+export const getConversations = async (): Promise<Conversation[]> =>
+  apiRequest<Conversation[]>('/messages/conversations', {}, true);
 
 export const getUnreadMessagesCount = async (): Promise<number> => {
   const response = await apiRequest<{ count: number }>('/messages/unread-count', {}, true);

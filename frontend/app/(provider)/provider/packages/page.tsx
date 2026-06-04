@@ -139,7 +139,7 @@ export default function ProviderPackagesPage() {
       } else {
         // Create new package
         await createServicePackage(packageData)
-        toast.success("Package created successfully")
+        toast.success("Package created! It appears on Explore → Service Packages.")
       }
 
       setDialogOpen(false)

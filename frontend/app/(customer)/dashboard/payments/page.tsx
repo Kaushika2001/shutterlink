@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
-import { getUserPayments } from "@/services/payments"
+import { getUserPayments, checkoutPayment, completePayment } from "@/services/payments"
 import { getCustomerBookings } from "@/services/bookings"
 import type { Booking } from "@/services/bookings"
 import type { Payment } from "@/services/payments"
@@ -53,21 +53,28 @@ export default function CustomerPaymentsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [allPayments, allBookings] = await Promise.all([getUserPayments(), getCustomerBookings()])
+        const allBookings = await getCustomerBookings()
+        let allPayments: Awaited<ReturnType<typeof getUserPayments>> = []
+        try {
+          allPayments = await getUserPayments()
+        } catch (payErr: any) {
+          toast.error(payErr?.message || "Failed to load payment history")
+        }
         const mappedPayments: PaymentItem[] = allPayments.map((p) => ({
           id: p.id,
           booking_id: p.booking_id,
-          provider_name: "",
-          method: p.payment_method,
+          provider_name: p.provider_name || "",
+          method: p.payment_method || "unknown",
           transaction_ref: p.transaction_id ?? p.id,
-          created_at: p.created_at,
+          created_at: new Date(p.created_at).toLocaleString(),
           amount: p.amount,
           status: p.status,
         }))
         const mappedPending: PendingBookingItem[] = allBookings
           .filter(
             (b) =>
-              b.status === "confirmed" &&
+              b.status === "pending" &&
+              !b.deposit_paid &&
               !allPayments.some((p) => p.booking_id === b.id && p.status === "completed")
           )
           .map((b) => ({
@@ -79,7 +86,7 @@ export default function CustomerPaymentsPage() {
         setPayments(mappedPayments)
         setPendingBookings(mappedPending)
       } catch (err: any) {
-        toast.error(err.message || "Failed to load payments")
+        toast.error(err?.message || "Failed to load bookings for payments")
       } finally {
         setLoading(false)
       }
@@ -87,11 +94,42 @@ export default function CustomerPaymentsPage() {
     load()
   }, [])
 
-  async function handlePayment() {
+  async function handlePayment(bookingId: string, amount: number) {
     setIsProcessing(true)
-    await new Promise((r) => setTimeout(r, 2000))
-    setIsProcessing(false)
-    toast.success("Payment successful!")
+    try {
+      const checkout = await checkoutPayment(bookingId, selectedMethod)
+
+      if (checkout.mode === "redirect" && checkout.redirect_url) {
+        window.location.href = checkout.redirect_url
+        return
+      }
+
+      if (checkout.gateway_configured && (selectedMethod === "onepay" || selectedMethod === "helapay")) {
+        toast.error("Complete payment on the gateway page. If you already paid, open Payments again to sync.")
+        return
+      }
+
+      await completePayment(checkout.payment.id, selectedMethod)
+      toast.success("Payment successful! Your booking is now confirmed.")
+      setPendingBookings((prev) => prev.filter((b) => b.id !== bookingId))
+      const refreshed = await getUserPayments()
+      setPayments(
+        refreshed.map((p) => ({
+          id: p.id,
+          booking_id: p.booking_id,
+          provider_name: p.provider_name || "",
+          method: p.payment_method || "unknown",
+          transaction_ref: p.transaction_id ?? p.id,
+          created_at: new Date(p.created_at).toLocaleString(),
+          amount: p.amount,
+          status: p.status,
+        }))
+      )
+    } catch (err: any) {
+      toast.error(err.message || "Payment failed")
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   if (loading) {
@@ -161,7 +199,7 @@ export default function CustomerPaymentsPage() {
                             ))}
                           </RadioGroup>
                           <Button
-                            onClick={handlePayment}
+                            onClick={() => handlePayment(booking.id, booking.total_amount)}
                             disabled={isProcessing}
                             className="w-full bg-primary text-primary-foreground"
                           >
@@ -191,7 +229,7 @@ export default function CustomerPaymentsPage() {
                   <div>
                     <p className="font-medium text-foreground">{payment.provider_name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {payment.method.charAt(0).toUpperCase() + payment.method.slice(1).replace("_", " ")} - {payment.transaction_ref}
+                      {(payment.method || "payment").charAt(0).toUpperCase() + (payment.method || "payment").slice(1).replace("_", " ")} - {payment.transaction_ref}
                     </p>
                     <p className="text-xs text-muted-foreground">{payment.created_at}</p>
                   </div>
@@ -227,7 +265,7 @@ export default function CustomerPaymentsPage() {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Method</span>
-                              <span className="text-foreground">{payment.method.replace("_", " ")}</span>
+                              <span className="text-foreground">{(payment.method || "payment").replace("_", " ")}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Date</span>

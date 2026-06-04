@@ -3,40 +3,67 @@ import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class ReviewService {
   async getProviderReviews(providerId: string) {
+    const { data: profile } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('user_id')
+      .eq('id', providerId)
+      .maybeSingle();
+
+    const providerUserId = profile?.user_id;
+    const idFilter = providerUserId
+      ? `provider_id.eq.${providerId},provider_id.eq.${providerUserId}`
+      : `provider_id.eq.${providerId}`;
+
     const { data, error } = await supabaseAdmin
       .from('reviews')
-      .select('*, users(name)')
-      .eq('provider_id', providerId)
-      .eq('is_visible', true)
+      .select('*')
+      .or(idFilter)
       .order('created_at', { ascending: false });
 
-    if (error) throw new ValidationError('Failed to fetch reviews');
-    return (data || []).map((review: any) => ({
-      ...review,
-      customer_name: review.users?.name || null,
-      users: undefined,
-    }));
+    if (error) return [];
+    return data || [];
   }
 
   async getUserReviews(userId: string) {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from('reviews')
-      .select('*, provider_profiles(business_name)')
-      .eq('reviewer_id', userId)
+      .select('*')
+      .eq('customer_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) throw new ValidationError('Failed to fetch reviews');
-    return (data || []).map((review: any) => ({
+    if (error) {
+      const fallback = await supabaseAdmin
+        .from('reviews')
+        .select('*')
+        .eq('reviewer_id', userId)
+        .order('created_at', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) return [];
+
+    const reviews = data || [];
+    const providerUserIds = [...new Set(reviews.map((r: any) => r.provider_id))];
+    if (providerUserIds.length === 0) return reviews;
+
+    const { data: profiles } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('user_id, business_name')
+      .in('user_id', providerUserIds);
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+
+    return reviews.map((review: any) => ({
       ...review,
-      provider_business_name: review.provider_profiles?.business_name || null,
-      provider_profiles: undefined,
+      provider_name: profileMap.get(review.provider_id)?.business_name || null,
     }));
   }
 
   async getPendingReviews(userId: string) {
     const { data: completedBookings, error: bookingError } = await supabaseAdmin
       .from('bookings')
-      .select('id, provider_id, service_date, booking_number')
+      .select('id, provider_id, service_date, booking_number, package_id')
       .eq('customer_id', userId)
       .eq('status', 'completed');
 
@@ -50,10 +77,25 @@ export class ReviewService {
       .select('booking_id')
       .in('booking_id', bookingIds);
 
-    if (reviewError) throw new ValidationError('Failed to fetch existing reviews');
+    const reviewed = reviewError
+      ? new Set<string>()
+      : new Set((existingReviews || []).map((r: any) => r.booking_id));
 
-    const reviewed = new Set((existingReviews || []).map((r: any) => r.booking_id));
-    return (completedBookings || []).filter((b: any) => !reviewed.has(b.id));
+    const pending = (completedBookings || []).filter((b: any) => !reviewed.has(b.id));
+    const providerUserIds = [...new Set(pending.map((b: any) => b.provider_id))];
+
+    const { data: profiles } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('user_id, business_name')
+      .in('user_id', providerUserIds);
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
+
+    return pending.map((b: any) => ({
+      ...b,
+      provider_business_name: profileMap.get(b.provider_id)?.business_name || null,
+      provider_id: b.provider_id,
+    }));
   }
 
   async createReview(userId: string, data: { booking_id: string; rating: number; comment?: string }) {
@@ -70,21 +112,30 @@ export class ReviewService {
     if (booking.customer_id !== userId) throw new ValidationError('Not your booking');
     if (booking.status !== 'completed') throw new ValidationError('Only completed bookings can be reviewed');
 
-    const { data: review, error } = await supabaseAdmin
+    const basePayload = {
+      booking_id,
+      provider_id: booking.provider_id,
+      rating,
+      comment: comment || null,
+    };
+
+    let { data: review, error } = await supabaseAdmin
       .from('reviews')
-      .insert({
-        booking_id,
-        reviewer_id: userId,
-        provider_id: booking.provider_id,
-        rating,
-        comment: comment || '',
-        is_visible: true,
-        is_verified_booking: true,
-      })
+      .insert({ ...basePayload, customer_id: userId })
       .select()
       .single();
 
-    if (error || !review) throw new ValidationError('Failed to create review');
+    if (error) {
+      const retry = await supabaseAdmin
+        .from('reviews')
+        .insert({ ...basePayload, reviewer_id: userId, comment: comment || '' })
+        .select()
+        .single();
+      review = retry.data;
+      error = retry.error;
+    }
+
+    if (error || !review) throw new ValidationError(error?.message || 'Failed to create review');
 
     await this.updateProviderRating(booking.provider_id);
 
@@ -92,11 +143,21 @@ export class ReviewService {
   }
 
   async getProviderReviewStats(providerId: string) {
+    const { data: profile } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('user_id')
+      .eq('id', providerId)
+      .maybeSingle();
+
+    const providerUserId = profile?.user_id;
+    const idFilter = providerUserId
+      ? `provider_id.eq.${providerId},provider_id.eq.${providerUserId}`
+      : `provider_id.eq.${providerId}`;
+
     const { data: reviews, error } = await supabaseAdmin
       .from('reviews')
       .select('rating')
-      .eq('provider_id', providerId)
-      .eq('is_visible', true);
+      .or(idFilter);
 
     if (error) throw new ValidationError('Failed to fetch review stats');
 
@@ -113,12 +174,12 @@ export class ReviewService {
     return { avg_rating, total_reviews: total, distribution };
   }
 
-  private async updateProviderRating(providerId: string) {
-    const stats = await this.getProviderReviewStats(providerId);
+  private async updateProviderRating(providerUserId: string) {
+    const stats = await this.getProviderReviewStats(providerUserId);
     await supabaseAdmin
       .from('provider_profiles')
       .update({ average_rating: stats.avg_rating })
-      .eq('id', providerId);
+      .eq('user_id', providerUserId);
   }
 }
 
