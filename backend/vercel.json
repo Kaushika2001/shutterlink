@@ -9,12 +9,21 @@
       "permanent": false
     }
   ],
-  "functions": {
-    "api/health.js": {
-      "maxDuration": 5,
-      "memory": 128
+  "routes": [
+    {
+      "handle": "filesystem"
     },
-    "api/[[...path]].js": {
+    {
+      "src": "/api/health",
+      "dest": "/health.json"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api"
+    }
+  ],
+  "functions": {
+    "api/index.js": {
       "maxDuration": 10,
       "memory": 1024
     }

@@ -6,6 +6,9 @@ await esbuild.build({
   platform: 'node',
   target: 'node20',
   outfile: 'api/express-bundle.cjs',
+  banner: {
+    js: '/* shutterlink express bundle */',
+  },
   format: 'cjs',
   sourcemap: false,
   minify: true,
