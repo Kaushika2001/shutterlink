@@ -7,9 +7,13 @@
     ".": "./dist/app.js",
     "./vercel": "./dist/vercel.js"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "ts-node src/server.ts",
     "build": "tsc",
+    "vercel-build": "tsc",
     "start": "node dist/server.js",
     "build:serverless": "tsc",
     "lint": "eslint src --ext .ts",

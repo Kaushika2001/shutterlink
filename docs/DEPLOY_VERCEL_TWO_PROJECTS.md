@@ -22,7 +22,7 @@
 |-------|--------|
 | Build Command | `npm run build` |
 | Output Directory | leave empty |
-| Install Command | `npm install` |
+| Install Command | `npm install --include=dev` (needs TypeScript for `tsc`) |
 
 7. Do **not** enable “Include files outside root” (not needed).
 
@@ -116,4 +116,6 @@ No trailing slash. Save → backend redeploys.
 | CORS error | Fix `CORS_ORIGIN` on **backend** project |
 | API calls localhost | Set `NEXT_PUBLIC_API_URL` on **frontend** → Redeploy |
 | Backend 404 | Root must be `backend`; check `backend/api/index.ts` exists |
+| Build: `tsc: command not found` | Set Install Command to `npm install --include=dev` |
+| Build stops after `npm install` | Push latest `backend/vercel.json`; confirm **Root Directory** = `backend` |
 | Frontend still has `/api` route | Remove `frontend/api/` folder; redeploy frontend |

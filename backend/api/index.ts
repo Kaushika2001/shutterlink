@@ -1,7 +1,9 @@
 /**
  * Vercel serverless entry (backend-only project).
- * All routes are under /api/* — see backend/vercel.json rewrites.
+ * Requires `npm run build` first (see vercel.json buildCommand).
  */
+import serverless from 'serverless-http';
+
 export const config = {
   api: {
     bodyParser: false,
@@ -9,4 +11,7 @@ export const config = {
   maxDuration: 60,
 };
 
-export { default } from '../src/vercel';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const app = require('../dist/app').default;
+
+export default serverless(app);
