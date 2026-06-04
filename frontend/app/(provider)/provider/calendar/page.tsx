@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
-import { getProviderProfile } from "@/services/provider"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import {
-  getProviderAvailability,
+  getMyAvailability,
   setAvailabilitySchedules,
   updateAvailabilitySchedule,
 } from "@/services/availability"
@@ -21,38 +20,47 @@ import { toast } from "sonner"
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
 export default function ProviderCalendarPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [schedules, setSchedules] = useState<AvailabilitySchedule[]>([])
   const [loading, setLoading] = useState(true)
-  const [providerProfileId, setProviderProfileId] = useState<string | null>(null)
+  const [providerKey, setProviderKey] = useState<string | null>(null)
+  const [tablesMissing, setTablesMissing] = useState(false)
   const [newDate, setNewDate] = useState("")
   const [newStartTime, setNewStartTime] = useState("09:00")
   const [newEndTime, setNewEndTime] = useState("17:00")
 
   useEffect(() => {
-    if (!user) return
+    if (!ready || !isAuthenticated || !user) {
+      if (ready) setLoading(false)
+      return
+    }
 
     const init = async () => {
       try {
-        const profile = await getProviderProfile(user.id)
-        if (!profile) {
-          toast.error("Provider profile not found")
-          setLoading(false)
-          return
-        }
-        setProviderProfileId(profile.id)
-        const data = await getProviderAvailability(profile.id)
+        setProviderKey(user.id)
+        const data = await getMyAvailability()
         setSchedules(data)
-      } catch (err) {
-        toast.error("Failed to load availability")
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : ""
+        if (
+          msg.includes("not set up") ||
+          msg.includes("migration") ||
+          msg.includes("RUN_AVAILABILITY") ||
+          msg.includes("Availability tables")
+        ) {
+          setTablesMissing(true)
+          setSchedules([])
+        } else {
+          toast.error(msg || "Failed to load availability")
+        }
         console.error(err)
       } finally {
         setLoading(false)
       }
     }
 
-    init()
-  }, [user])
+    void init()
+  }, [user, ready, isAuthenticated])
 
   const slots: AvailabilitySlot[] = schedules.map((s) => ({
     id: s.id,
@@ -64,11 +72,11 @@ export default function ProviderCalendarPage() {
   }))
 
   async function addSlot() {
-    if (!newDate || !providerProfileId) {
+    if (!newDate || !providerKey) {
       toast.error("Please select a date")
       return
     }
-    const dayOfWeek = new Date(newDate).getDay()
+    const dayOfWeek = new Date(`${newDate}T12:00:00`).getDay()
 
     if (schedules.some((s) => s.day_of_week === dayOfWeek)) {
       toast.error("A slot already exists for this day of the week")
@@ -91,19 +99,19 @@ export default function ProviderCalendarPage() {
     ]
 
     try {
-      const result = await setAvailabilitySchedules(providerProfileId, updated)
-      setSchedules(result)
+      const saved = await setAvailabilitySchedules(null, updated)
+      setSchedules(saved)
       setNewDate("")
-      toast.success("Availability slot added")
-    } catch {
-      toast.error("Failed to add slot")
+      toast.success("Availability updated")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save availability")
     }
   }
 
-  async function removeSlot(id: string) {
-    if (!providerProfileId) return
+  async function removeSlot(slotId: string) {
+    if (!providerKey) return
     const updated = schedules
-      .filter((s) => s.id !== id)
+      .filter((s) => s.id !== slotId)
       .map((s) => ({
         day_of_week: s.day_of_week,
         start_time: s.start_time,
@@ -112,23 +120,22 @@ export default function ProviderCalendarPage() {
       }))
 
     try {
-      const result = await setAvailabilitySchedules(providerProfileId, updated)
-      setSchedules(result)
+      const saved = await setAvailabilitySchedules(null, updated)
+      setSchedules(saved)
       toast.success("Slot removed")
-    } catch {
-      toast.error("Failed to remove slot")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update availability")
     }
   }
 
-  async function toggleSlot(id: string) {
-    const schedule = schedules.find((s) => s.id === id)
-    if (!schedule) return
-
+  async function toggleSlot(slotId: string, isAvailable: boolean) {
     try {
-      const updated = await updateAvailabilitySchedule(id, { is_active: !schedule.is_active })
-      setSchedules((prev) => prev.map((s) => (s.id === id ? { ...s, is_active: updated.is_active } : s)))
-    } catch {
-      toast.error("Failed to update slot")
+      await updateAvailabilitySchedule(slotId, { is_active: isAvailable })
+      setSchedules((prev) =>
+        prev.map((s) => (s.id === slotId ? { ...s, is_active: isAvailable } : s))
+      )
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update slot")
     }
   }
 
@@ -144,93 +151,82 @@ export default function ProviderCalendarPage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Availability Calendar</h1>
-        <p className="text-muted-foreground">Manage your available dates and time slots</p>
+        <p className="text-muted-foreground">Set your weekly hours so customers can book you</p>
       </div>
+
+      {tablesMissing && (
+        <Card className="border-amber-500/40 bg-amber-500/5">
+          <CardContent className="p-4 text-sm">
+            <p className="font-medium">Availability tables not found</p>
+            <p className="mt-1 text-muted-foreground">
+              Open Supabase → SQL Editor, paste and run{" "}
+              <code className="text-xs">backend/supabase/RUN_AVAILABILITY_SETUP.sql</code>, then refresh this page.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-card-foreground">
-            <Plus className="h-4 w-4 text-primary" /> Add Availability
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Plus className="h-4 w-4" /> Add weekly slot
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="flex flex-col gap-2">
-              <Label className="text-foreground">Date</Label>
-              <Input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="bg-background"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label className="text-foreground">Start Time</Label>
-              <Input
-                type="time"
-                value={newStartTime}
-                onChange={(e) => setNewStartTime(e.target.value)}
-                className="bg-background"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label className="text-foreground">End Time</Label>
-              <Input
-                type="time"
-                value={newEndTime}
-                onChange={(e) => setNewEndTime(e.target.value)}
-                className="bg-background"
-              />
-            </div>
-            <Button onClick={addSlot} className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="mr-2 h-4 w-4" /> Add Slot
-            </Button>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex flex-col gap-2">
+            <Label>Pick any date (uses day of week)</Label>
+            <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} className="w-44" />
           </div>
+          <div className="flex flex-col gap-2">
+            <Label>Start</Label>
+            <Input type="time" value={newStartTime} onChange={(e) => setNewStartTime(e.target.value)} className="w-32" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>End</Label>
+            <Input type="time" value={newEndTime} onChange={(e) => setNewEndTime(e.target.value)} className="w-32" />
+          </div>
+          <Button onClick={addSlot} disabled={tablesMissing} className="bg-primary text-primary-foreground">
+            Add slot
+          </Button>
         </CardContent>
       </Card>
 
       <Card className="border-border bg-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-card-foreground">
-            <CalendarDays className="h-4 w-4 text-primary" /> Your Availability ({slots.length} slots)
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarDays className="h-4 w-4" /> Weekly schedule
           </CardTitle>
         </CardHeader>
         <CardContent>
           {slots.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {slots.map((slot) => (
                 <div
                   key={slot.id}
-                  className="flex items-center justify-between rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
+                  className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`h-2.5 w-2.5 rounded-full ${slot.is_available ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="font-medium text-foreground">{slot.date}</p>
-                      <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Clock className="h-3 w-3" /> {slot.start_time} - {slot.end_time}
+                      <p className="text-sm text-muted-foreground">
+                        {slot.start_time} – {slot.end_time}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {slot.is_available ? "Available" : "Unavailable"}
-                      </span>
                       <Switch
                         checked={slot.is_available}
-                        onCheckedChange={() => toggleSlot(slot.id)}
+                        onCheckedChange={(checked) => toggleSlot(slot.id, checked)}
                         aria-label={`Toggle availability for ${slot.date}`}
                       />
+                      <span className="text-sm text-muted-foreground">
+                        {slot.is_available ? "Active" : "Off"}
+                      </span>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => removeSlot(slot.id)}
-                      aria-label={`Remove slot for ${slot.date}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" onClick={() => removeSlot(slot.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>
@@ -238,7 +234,7 @@ export default function ProviderCalendarPage() {
             </div>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No availability slots. Add some dates to let customers book your services.
+              No availability slots. Add your working days and hours above.
             </p>
           )}
         </CardContent>

@@ -52,7 +52,13 @@ export const config = {
   PAYMENT_RETURN_URL:
     process.env.PAYMENT_RETURN_URL || `${process.env.CORS_ORIGIN || 'http://localhost:3000'}/dashboard/payments/return`,
   PAYMENT_WEBHOOK_SECRET: process.env.PAYMENT_WEBHOOK_SECRET || '',
+  /** When true, checkout uses simulate/sandbox flow (no live gateway charges). Default on in development. */
+  PAYMENT_SANDBOX_MODE:
+    process.env.PAYMENT_SANDBOX_MODE === 'true' ||
+    (process.env.PAYMENT_SANDBOX_MODE !== 'false' && process.env.NODE_ENV !== 'production'),
 };
+
+export const isPaymentSandboxMode = (): boolean => config.PAYMENT_SANDBOX_MODE;
 
 export const isCloudinaryConfigured = (): boolean =>
   Boolean(config.CLOUDINARY_CLOUD_NAME && config.CLOUDINARY_API_KEY && config.CLOUDINARY_API_SECRET);

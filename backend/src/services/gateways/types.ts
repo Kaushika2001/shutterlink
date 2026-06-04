@@ -16,6 +16,7 @@ export interface GatewayCheckoutResult {
   redirectUrl?: string;
   gatewayTransactionId?: string;
   message?: string;
+  sandbox?: boolean;
 }
 
 export interface GatewayWebhookPayload {

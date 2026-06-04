@@ -13,8 +13,16 @@ export class ProviderController {
         return;
       }
 
-      const profile = await providerService.getProviderProfile(req.userId);
-      res.status(200).json({ success: true, data: profile });
+      try {
+        const profile = await providerService.getProviderProfile(req.userId);
+        res.status(200).json({ success: true, data: profile });
+      } catch (err: any) {
+        if (err.statusCode === 404) {
+          res.status(200).json({ success: true, data: null });
+          return;
+        }
+        throw err;
+      }
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }
@@ -37,21 +45,10 @@ export class ProviderController {
         return;
       }
 
-      const schema = z.object({
-        business_name: z.string().min(2),
-        service_type: z.array(z.enum(['photographer', 'editor', 'equipment_renter'])),
-        specializations: z.array(z.string()).optional(),
-        years_experience: z.number().min(0),
-        hourly_rate: z.number().positive(),
-        bio: z.string().optional(),
-        equipment_list: z.array(z.string()).optional(),
-        coverage_areas: z.array(z.string()).optional(),
-        max_travel_distance: z.number().optional(),
-        social_urls: z.record(z.string()).optional(),
-      });
-
-      const payload = validateSchema<CreateProviderPayload>(schema, req.body);
-      const { provider, token } = await providerService.createOrUpdateProvider(req.userId, payload);
+      const { provider, token } = await providerService.upsertProfileFromBody(
+        req.userId,
+        req.body as Record<string, unknown>
+      );
 
       res.status(200).json({
         success: true,

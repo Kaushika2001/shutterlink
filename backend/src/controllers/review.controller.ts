@@ -40,6 +40,20 @@ export class ReviewController {
     }
   }
 
+  async getPendingReviewsForProvider(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const { providerId } = req.params;
+      const bookings = await reviewService.getPendingReviewsForProvider(req.userId, providerId);
+      res.status(200).json({ success: true, data: bookings });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
   async createReview(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.userId) {

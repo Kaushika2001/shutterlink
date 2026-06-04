@@ -2,6 +2,7 @@
 
 import { use, useState, useEffect } from "react"
 import Link from "next/link"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { getBookingById } from "@/services/bookings"
 import { getUserPayments } from "@/services/payments"
 import type { Booking } from "@/services/bookings"
@@ -52,12 +53,20 @@ interface MappedBooking {
 
 export default function BookingConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { ready, isAuthenticated } = useAuthReady()
   const [booking, setBooking] = useState<MappedBooking | null>(null)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!ready) return
+
     async function load() {
+      if (!isAuthenticated) {
+        setLoading(false)
+        return
+      }
+
       try {
         const [apiBooking, allPayments] = await Promise.all([getBookingById(id), getUserPayments()])
         const mapped: MappedBooking = {
@@ -84,8 +93,8 @@ export default function BookingConfirmationPage({ params }: { params: Promise<{ 
         setLoading(false)
       }
     }
-    load()
-  }, [id])
+    void load()
+  }, [id, ready, isAuthenticated])
 
   if (loading) {
     return (

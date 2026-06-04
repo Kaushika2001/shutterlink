@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { getCustomerBookings, type Booking } from "@/services/bookings"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,28 +14,35 @@ import { CalendarDays, MapPin, Clock, Search, CreditCard, MessageSquare } from "
 import { toast } from "sonner"
 
 export default function CustomerBookingsPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [statusFilter, setStatusFilter] = useState("all")
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!ready) return
+
     const fetchBookings = async () => {
-      if (!user) return
-      
+      if (!isAuthenticated || !user) {
+        setBookings([])
+        setLoading(false)
+        return
+      }
+
       try {
         setLoading(true)
         const data = await getCustomerBookings()
-        setBookings(data)
-      } catch (error: any) {
-        toast.error(error?.message || "Failed to load bookings")
+        setBookings(Array.isArray(data) ? data : [])
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Failed to load bookings")
+        setBookings([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchBookings()
-  }, [user])
+    void fetchBookings()
+  }, [user, ready, isAuthenticated])
 
   const filtered = statusFilter === "all" ? bookings : bookings.filter((b) => b.status === statusFilter)
 
@@ -142,9 +149,9 @@ export default function CustomerBookingsPage() {
                           <MessageSquare className="mr-1 h-3 w-3" /> Message
                         </Link>
                       </Button>
-                      {booking.status === "completed" && (
+                      {(booking.status === "completed" || booking.status === "confirmed") && (
                         <Button variant="outline" size="sm" asChild>
-                          <Link href="/dashboard/reviews">Review</Link>
+                          <Link href={`/dashboard/reviews?booking=${booking.id}`}>Leave Review</Link>
                         </Button>
                       )}
                     </div>

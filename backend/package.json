@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
-    "reset-test-data": "ts-node scripts/reset-test-data.ts"
+    "reset-test-data": "ts-node scripts/reset-test-data.ts",
+    "db:messaging": "ts-node scripts/apply-messaging-migrations.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.38.4",
@@ -28,6 +29,7 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.10.6",
+    "@types/pg": "^8.20.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }

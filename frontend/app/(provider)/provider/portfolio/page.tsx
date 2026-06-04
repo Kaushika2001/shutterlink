@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,7 +43,7 @@ const CATEGORIES = [
 ]
 
 export default function ProviderPortfolioPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [isLoading, setIsLoading] = useState(true)
   const [items, setItems] = useState<PortfolioItem[]>([])
   const [providerId, setProviderId] = useState<string | null>(null)
@@ -63,11 +63,15 @@ export default function ProviderPortfolioPage() {
   const [uploadError, setUploadError] = useState("")
 
   useEffect(() => {
-    loadData()
-  }, [user])
+    if (!ready) return
+    void loadData()
+  }, [user, ready, isAuthenticated])
 
   async function loadData() {
-    if (!user) return
+    if (!isAuthenticated || !user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     try {

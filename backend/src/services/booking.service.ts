@@ -1,6 +1,7 @@
 import { isServiceRoleConfigured, supabaseAdmin } from '../config/supabase';
 import { Booking, CreateBookingPayload, BookingStatus } from '../types';
 import { NotFoundError, ValidationError } from '../utils/errors';
+import { isMissingColumnError } from '../utils/supabaseErrors';
 import { auditService } from './audit.service';
 import { notificationService } from './notification.service';
 
@@ -136,36 +137,97 @@ export class BookingService {
     return booking as Booking;
   }
 
+  private normalizeBookingRow(row: Record<string, unknown>): EnrichedBooking {
+    const booking = { ...row } as unknown as EnrichedBooking;
+    const legacy = row as Record<string, unknown>;
+    if (!booking.service_date && legacy.booking_date) {
+      booking.service_date = String(legacy.booking_date);
+    }
+    if (!booking.service_time && legacy.start_time) {
+      booking.service_time = String(legacy.start_time);
+    }
+    if (!booking.location_address && legacy.location) {
+      booking.location_address = String(legacy.location);
+    }
+    return booking;
+  }
+
+  private async listBookingsByField(
+    field: 'customer_id' | 'provider_id',
+    userId: string,
+    options?: { page?: number; limit?: number; statuses?: string[] }
+  ): Promise<EnrichedBooking[]> {
+    const page = options?.page ?? 1;
+    const limit = options?.limit ?? 50;
+    const offset = (page - 1) * limit;
+    const orderColumns = ['service_date', 'booking_date', 'created_at'];
+    let lastError: { message?: string; code?: string; details?: string } | null = null;
+    let rows: Record<string, unknown>[] | null = null;
+
+    for (const orderCol of orderColumns) {
+      let query = supabaseAdmin.from('bookings').select('*').eq(field, userId);
+      if (options?.statuses?.length) {
+        query = query.in('status', options.statuses);
+      }
+      const { data, error } = await query
+        .order(orderCol, { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (!error) {
+        rows = (data || []) as Record<string, unknown>[];
+        break;
+      }
+      lastError = error;
+      if (!isMissingColumnError(error)) break;
+    }
+
+    if (rows === null) {
+      console.error('Failed to fetch bookings:', JSON.stringify(lastError));
+      throw new ValidationError(lastError?.message || 'Failed to fetch bookings');
+    }
+
+    return rows.map((r) => this.normalizeBookingRow(r));
+  }
+
   private async enrichCustomerBookings(bookings: EnrichedBooking[]): Promise<EnrichedBooking[]> {
     if (bookings.length === 0) return bookings;
 
     const providerIds = [...new Set(bookings.map((b) => b.provider_id))];
     const packageIds = [...new Set(bookings.map((b) => b.package_id).filter(Boolean))] as string[];
 
-    const { data: providers } = await supabaseAdmin
-      .from('provider_profiles')
-      .select('user_id, business_name')
-      .in('user_id', providerIds);
+    const [{ data: providersByUser }, { data: providersByProfile }] = await Promise.all([
+      supabaseAdmin.from('provider_profiles').select('id, user_id, business_name').in('user_id', providerIds),
+      supabaseAdmin.from('provider_profiles').select('id, user_id, business_name').in('id', providerIds),
+    ]);
 
     const packageQuery =
       packageIds.length > 0
         ? supabaseAdmin.from('service_packages').select('id, name').in('id', packageIds)
         : Promise.resolve({ data: [] as { id: string; name: string }[] });
 
-    const { data: users } = await supabaseAdmin.from('users').select('id, name').in('id', providerIds);
+    const providerUserIds = [
+      ...new Set(
+        [...(providersByUser || []), ...(providersByProfile || [])].map((p) => p.user_id)
+      ),
+      ...providerIds,
+    ];
+    const { data: users } = await supabaseAdmin.from('users').select('id, name').in('id', providerUserIds);
 
     const { data: packages } = await packageQuery;
 
-    const providerMap = new Map((providers || []).map((p) => [p.user_id, p]));
+    const providerByUserId = new Map((providersByUser || []).map((p) => [p.user_id, p]));
+    const providerByProfileId = new Map((providersByProfile || []).map((p) => [p.id, p]));
     const packageMap = new Map((packages || []).map((p) => [p.id, p]));
     const userMap = new Map((users || []).map((u) => [u.id, u]));
 
     for (const booking of bookings) {
-      const providerProfile = providerMap.get(booking.provider_id);
+      const byUser = providerByUserId.get(booking.provider_id);
+      const byProfile = providerByProfileId.get(booking.provider_id);
+      const providerUserId = byUser?.user_id || byProfile?.user_id || booking.provider_id;
       const pkg = booking.package_id ? packageMap.get(booking.package_id) : null;
-      const user = userMap.get(booking.provider_id);
+      const user = userMap.get(providerUserId);
 
-      booking.provider_business_name = providerProfile?.business_name || null;
+      booking.provider_business_name = byUser?.business_name || byProfile?.business_name || null;
       booking.package_name = pkg?.name || null;
       booking.provider_name = user?.name || null;
     }
@@ -174,41 +236,16 @@ export class BookingService {
   }
 
   async getCustomerBookings(customerId: string, page: number = 1, limit: number = 50): Promise<EnrichedBooking[]> {
-    const offset = (page - 1) * limit;
-
-    const { data: bookings, error } = await supabaseAdmin
-      .from('bookings')
-      .select('*')
-      .eq('customer_id', customerId)
-      .range(offset, offset + limit - 1)
-      .order('service_date', { ascending: false });
-
-    if (error) {
-      console.error('Failed to fetch bookings:', JSON.stringify({ message: error?.message, code: error?.code }));
-      throw new ValidationError('Failed to fetch bookings');
-    }
-
-    return this.enrichCustomerBookings((bookings || []) as EnrichedBooking[]);
+    const bookings = await this.listBookingsByField('customer_id', customerId, { page, limit });
+    return this.enrichCustomerBookings(bookings);
   }
 
-  async getProviderBookings(providerId: string, page: number = 1, limit: number = 20): Promise<EnrichedBooking[]> {
-    const offset = (page - 1) * limit;
-
-    const { data: bookings, error } = await supabaseAdmin
-      .from('bookings')
-      .select('*')
-      .eq('provider_id', providerId)
-      .range(offset, offset + limit - 1)
-      .order('service_date', { ascending: false });
-
-    if (error) {
-      throw new ValidationError('Failed to fetch bookings');
-    }
-
-    const result = (bookings || []) as EnrichedBooking[];
+  async getProviderBookings(providerId: string, page: number = 1, limit: number = 50): Promise<EnrichedBooking[]> {
+    const providerUserId = (await this.resolveProviderProfile(providerId))?.user_id || providerId;
+    const result = await this.listBookingsByField('provider_id', providerUserId, { page, limit });
     if (result.length === 0) return result;
 
-    const customerIds = [...new Set(result.map(b => b.customer_id))];
+    const customerIds = [...new Set(result.map((b) => b.customer_id).filter(Boolean))];
     const packageIds = [...new Set(result.map(b => b.package_id))];
 
     const { data: packages } = await supabaseAdmin
@@ -237,47 +274,33 @@ export class BookingService {
 
   async getUpcomingBookings(userId: string, isProvider: boolean = false): Promise<EnrichedBooking[]> {
     const field = isProvider ? 'provider_id' : 'customer_id';
+    const lookupId = isProvider
+      ? (await this.resolveProviderProfile(userId))?.user_id || userId
+      : userId;
+    const bookings = await this.listBookingsByField(field, lookupId, {
+      limit: 100,
+      statuses: ['pending', 'confirmed'],
+    });
 
-    const { data: bookings, error } = await supabaseAdmin
-      .from('bookings')
-      .select('*')
-      .eq(field, userId)
-      .in('status', ['pending', 'confirmed'])
-      .order('service_date', { ascending: true });
-
-    if (error) {
-      throw new ValidationError('Failed to fetch upcoming bookings');
-    }
-
-    if (isProvider) {
-      return (bookings || []) as EnrichedBooking[];
-    }
-
-    return this.enrichCustomerBookings((bookings || []) as EnrichedBooking[]);
+    if (isProvider) return bookings;
+    return this.enrichCustomerBookings(bookings);
   }
 
   async getBookingHistory(userId: string, isProvider: boolean = false): Promise<EnrichedBooking[]> {
     const field = isProvider ? 'provider_id' : 'customer_id';
+    const lookupId = isProvider
+      ? (await this.resolveProviderProfile(userId))?.user_id || userId
+      : userId;
+    const bookings = await this.listBookingsByField(field, lookupId, {
+      limit: 100,
+      statuses: ['completed', 'cancelled', 'rejected'],
+    });
 
-    const { data: bookings, error } = await supabaseAdmin
-      .from('bookings')
-      .select('*')
-      .eq(field, userId)
-      .in('status', ['completed', 'cancelled'])
-      .order('service_date', { ascending: false });
-
-    if (error) {
-      throw new ValidationError('Failed to fetch booking history');
-    }
-
-    if (isProvider) {
-      return (bookings || []) as EnrichedBooking[];
-    }
-
-    return this.enrichCustomerBookings((bookings || []) as EnrichedBooking[]);
+    if (isProvider) return bookings;
+    return this.enrichCustomerBookings(bookings);
   }
 
-  async getBookingById(bookingId: string): Promise<Booking> {
+  async getBookingById(bookingId: string, requesterId?: string): Promise<EnrichedBooking> {
     const { data: booking, error } = await supabaseAdmin
       .from('bookings')
       .select('*')
@@ -288,7 +311,20 @@ export class BookingService {
       throw new NotFoundError('Booking not found');
     }
 
-    return booking as Booking;
+    if (requesterId) {
+      const providerUserId = await this.resolveProviderProfile(booking.provider_id);
+      const ownerProviderId = providerUserId?.user_id || booking.provider_id;
+      const isCustomer = booking.customer_id === requesterId;
+      const isProvider = ownerProviderId === requesterId;
+      if (!isCustomer && !isProvider) {
+        throw new ValidationError('You do not have access to this booking');
+      }
+    }
+
+    const [enriched] = await this.enrichCustomerBookings([
+      this.normalizeBookingRow(booking as Record<string, unknown>),
+    ]);
+    return enriched;
   }
 
   async updateBooking(bookingId: string, updates: Partial<Booking>): Promise<Booking> {

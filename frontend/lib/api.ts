@@ -28,17 +28,25 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, requir
   const headers = new Headers(init.headers || {});
   headers.set('Content-Type', 'application/json');
 
-  if (requireAuth && token) {
+  if (requireAuth) {
+    if (!token) {
+      throw new Error('Please log in again');
+    }
     headers.set('Authorization', `Bearer ${token}`);
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  const payload = (await response.json()) as ApiResponse<T>;
+  let payload: ApiResponse<T>;
+  try {
+    payload = (await response.json()) as ApiResponse<T>;
+  } catch {
+    throw new Error(response.ok ? 'Invalid server response' : `Request failed (${response.status})`);
+  }
 
   if (!response.ok || !payload.success) {
     throw new Error(payload.error || payload.message || 'Request failed');
   }
 
-  return payload.data as T;
+  return (payload.data ?? null) as T;
 }
 

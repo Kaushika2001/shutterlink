@@ -48,10 +48,10 @@ export class BookingController {
       const bookings = await bookingService.getCustomerBookings(
         req.userId,
         page ? Number(page) : 1,
-        limit ? Number(limit) : 20
+        limit ? Number(limit) : 50
       );
 
-      res.status(200).json({ success: true, data: bookings });
+      res.status(200).json({ success: true, data: bookings ?? [] });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }
@@ -71,7 +71,7 @@ export class BookingController {
         limit ? Number(limit) : 20
       );
 
-      res.status(200).json({ success: true, data: bookings });
+      res.status(200).json({ success: true, data: bookings ?? [] });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }
@@ -109,10 +109,14 @@ export class BookingController {
     }
   }
 
-  async getBookingById(req: Request, res: Response): Promise<void> {
+  async getBookingById(req: AuthRequest, res: Response): Promise<void> {
     try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
       const { bookingId } = req.params;
-      const booking = await bookingService.getBookingById(bookingId);
+      const booking = await bookingService.getBookingById(bookingId, req.userId);
 
       res.status(200).json({ success: true, data: booking });
     } catch (error: any) {

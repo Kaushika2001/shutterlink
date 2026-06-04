@@ -21,30 +21,21 @@ export class DisputeService {
   async getActiveDisputes(limit = 10) {
     const { data, error } = await supabaseAdmin
       .from('disputes')
-      .select('*, users!customer_id(name), provider_profiles!inner(business_name)')
+      .select('*')
       .in('status', ['open', 'investigating'])
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error) {
-      const { data: fallback } = await supabaseAdmin
-        .from('disputes')
-        .select('*')
-        .in('status', ['open', 'investigating'])
-        .limit(limit);
-      return (fallback || []).map((d: any) => ({
-        ...d,
-        customer_name: 'Customer',
-        provider_name: 'Provider',
-      }));
+      return [];
     }
 
     return (data || []).map((d: any) => ({
       id: d.id,
       status: d.status,
       reason: d.reason,
-      customer_name: d.users?.name || 'Customer',
-      provider_name: d.provider_profiles?.business_name || 'Provider',
+      customer_name: d.customer_name || 'Customer',
+      provider_name: d.provider_name || 'Provider',
     }));
   }
 

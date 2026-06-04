@@ -63,7 +63,16 @@ export class AuthService {
       updated_at: new Date().toISOString(),
     };
 
-    return { user, token };
+    return {
+      user,
+      token,
+      supabase_session: authData.session
+        ? {
+            access_token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+          }
+        : null,
+    };
   }
 
   async login(payload: LoginPayload): Promise<AuthResponse> {
@@ -94,7 +103,16 @@ export class AuthService {
       role: user.role,
     });
 
-    return { user: user as User, token };
+    return {
+      user: user as User,
+      token,
+      supabase_session: authData.session
+        ? {
+            access_token: authData.session.access_token,
+            refresh_token: authData.session.refresh_token,
+          }
+        : null,
+    };
   }
 
   async getCurrentUser(userId: string): Promise<User> {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,7 +34,7 @@ const AVAILABILITY_STATUS = [
 ]
 
 export default function ProviderProfilePage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [profile, setProfile] = useState<ProviderProfile | null>(null)
@@ -60,11 +60,15 @@ export default function ProviderProfilePage() {
   const [linkedinUrl, setLinkedinUrl] = useState("")
 
   useEffect(() => {
-    loadProfile()
-  }, [user])
+    if (!ready) return
+    void loadProfile()
+  }, [user, ready, isAuthenticated])
 
   async function loadProfile() {
-    if (!user) return
+    if (!isAuthenticated || !user) {
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -94,10 +98,11 @@ export default function ProviderProfilePage() {
     setCoverageAreas(data.coverage_areas?.join(", ") || "")
     setMaxTravelDistance(data.max_travel_distance?.toString() || "")
     setResponseTimeHours(data.response_time_hours?.toString() || "")
-    setInstagramUrl(data.instagram_url || "")
-    setFacebookUrl(data.facebook_url || "")
-    setTwitterUrl(data.twitter_url || "")
-    setLinkedinUrl(data.linkedin_url || "")
+    const social = (data as ProviderProfile & { social_urls?: Record<string, string> }).social_urls
+    setInstagramUrl(data.instagram_url || social?.instagram || "")
+    setFacebookUrl(data.facebook_url || social?.facebook || "")
+    setTwitterUrl(data.twitter_url || social?.twitter || "")
+    setLinkedinUrl(data.linkedin_url || social?.linkedin || "")
   }
 
   function toggleServiceType(type: string) {
@@ -125,14 +130,19 @@ export default function ProviderProfilePage() {
       return
     }
 
+    if (!businessName.trim()) {
+      toast.error("Business name is required")
+      return
+    }
+
     setIsSaving(true)
     try {
       const updates: Partial<ProviderProfile> = {
-        business_name: businessName || null,
+        business_name: businessName.trim(),
         service_type: serviceTypes,
         specializations: selectedSpecializations,
-        years_experience: yearsExperience ? parseInt(yearsExperience) : null,
-        hourly_rate: hourlyRate ? parseFloat(hourlyRate) : null,
+        years_experience: yearsExperience ? parseInt(yearsExperience, 10) : 0,
+        hourly_rate: hourlyRate ? parseFloat(hourlyRate) : 0,
         availability_status: availabilityStatus,
         portfolio_url: portfolioUrl || null,
         bio: bio || null,
@@ -163,6 +173,13 @@ export default function ProviderProfilePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {!profile && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Complete your profile below and click <strong>Save Profile</strong> to appear on Explore and accept bookings.
+          </CardContent>
+        </Card>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Provider Profile</h1>

@@ -8,8 +8,9 @@ Use this after clearing Supabase so you can test **register → login → provid
 
 In **Supabase → SQL Editor**, run these files **once** (in order) if you have not already:
 
-1. `backend/supabase/migrations/018_ensure_messages_and_notifications.sql`
+1. `backend/supabase/migrations/018_ensure_messages_and_notifications.sql` (includes live chat / Realtime)
 2. `backend/supabase/migrations/019_ensure_payments_columns.sql`
+3. If 018 was run earlier without Realtime: `021_enable_messages_realtime.sql`
 
 Check schema:
 
@@ -24,6 +25,8 @@ Ensure `backend/.env` has:
 
 Restart API: `cd backend` → `npm run dev`  
 Restart UI: `cd frontend` → `npm run dev`
+
+**Live messages:** After migration 018, **log out and log in again** (stores Supabase session for Realtime). Messages page shows **Live updates on** when ready.
 
 ---
 
@@ -125,7 +128,7 @@ After register you should land on the correct dashboard.
 - [ ] Explore shows package + portfolio
 - [ ] Customer creates booking
 - [ ] Customer pays (pending → confirmed)
-- [ ] Messages send/receive
+- [ ] Messages send/receive (second browser/tab updates live without refresh)
 - [ ] Notifications appear
 - [ ] Provider completes booking
 - [ ] Customer leaves review

@@ -51,7 +51,8 @@ export default function AdminDashboard() {
           })),
         })
       } catch (error: any) {
-        toast.error(error.message || 'Failed to load dashboard data')
+        console.error('Admin dashboard load error:', error)
+        toast.error(error?.message || 'Failed to load dashboard data')
       } finally {
         setLoading(false)
       }
@@ -71,30 +72,22 @@ export default function AdminDashboard() {
     {
       title: "Total Users",
       value: dashboardData?.total_users ?? 0,
-      change: 12.5,
       icon: <Users className="h-5 w-5" />,
-      trend: "up" as const,
     },
     {
       title: "Service Providers",
       value: dashboardData?.total_providers ?? 0,
-      change: 8.3,
       icon: <Camera className="h-5 w-5" />,
-      trend: "up" as const,
     },
     {
       title: "Total Bookings",
       value: dashboardData?.total_bookings ?? 0,
-      change: 15.2,
       icon: <BookOpen className="h-5 w-5" />,
-      trend: "up" as const,
     },
     {
       title: "Revenue",
-      value: `LKR ${((dashboardData?.revenue ?? 0) / 1000).toFixed(0)}K`,
-      change: 22.1,
+      value: `LKR ${((dashboardData?.revenue ?? dashboardData?.total_revenue ?? 0) / 1000).toFixed(0)}K`,
       icon: <CreditCard className="h-5 w-5" />,
-      trend: "up" as const,
     },
   ]
 

@@ -3,56 +3,25 @@ import { apiRequest } from '@/lib/api';
 export interface Review {
   id: string;
   booking_id: string;
-  reviewer_id: string;
+  customer_id?: string;
+  reviewer_id?: string;
   provider_id: string;
   rating: number;
-  title?: string;
-  comment?: string;
-  would_recommend: boolean;
-  professionalism_rating?: number;
-  quality_rating?: number;
-  value_rating?: number;
-  is_verified_booking: boolean;
-  is_visible: boolean;
-  flagged_count: number;
-  helpful_count: number;
-  provider_response?: string;
-  provider_response_date?: string;
+  title?: string | null;
+  comment?: string | null;
+  is_anonymous?: boolean;
+  customer_name?: string | null;
+  reviewer_name?: string | null;
+  provider_name?: string | null;
   created_at: string;
-  updated_at: string;
-  reviewer_name?: string;
-  provider_name?: string;
+  updated_at?: string;
 }
 
 export interface CreateReviewData {
   booking_id: string;
-  provider_id: string;
   rating: number;
   title?: string;
   comment?: string;
-  would_recommend?: boolean;
-  professionalism_rating?: number;
-  quality_rating?: number;
-  value_rating?: number;
-}
-
-export interface UpdateReviewData {
-  rating?: number;
-  title?: string;
-  comment?: string;
-  would_recommend?: boolean;
-  professionalism_rating?: number;
-  quality_rating?: number;
-  value_rating?: number;
-}
-
-export interface ReviewResponse {
-  id: string;
-  review_id: string;
-  provider_id: string;
-  response_text: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ReviewStats {
@@ -63,10 +32,25 @@ export interface ReviewStats {
   three_star_count: number;
   two_star_count: number;
   one_star_count: number;
-  avg_professionalism: number;
-  avg_quality: number;
-  avg_value: number;
-  recommend_percentage: number;
+}
+
+type ApiReviewStats = {
+  avg_rating: number;
+  total_reviews: number;
+  distribution: Record<number, number>;
+};
+
+function mapStats(raw: ApiReviewStats): ReviewStats {
+  const d = raw.distribution || {};
+  return {
+    total_reviews: raw.total_reviews,
+    average_rating: raw.avg_rating,
+    five_star_count: d[5] || 0,
+    four_star_count: d[4] || 0,
+    three_star_count: d[3] || 0,
+    two_star_count: d[2] || 0,
+    one_star_count: d[1] || 0,
+  };
 }
 
 export const createReview = async (reviewData: CreateReviewData): Promise<Review> =>
@@ -78,12 +62,20 @@ export const createReview = async (reviewData: CreateReviewData): Promise<Review
         booking_id: reviewData.booking_id,
         rating: reviewData.rating,
         comment: reviewData.comment,
+        title: reviewData.title,
       }),
     },
     true
   );
 
-export const getUserReviews = async (): Promise<Review[]> => apiRequest<Review[]>('/reviews/me', {}, true);
+export const getUserReviews = async (): Promise<Review[]> => {
+  try {
+    const data = await apiRequest<Review[] | null>('/reviews/me', {}, true);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+};
 
 export const getProviderReviews = async (providerId: string): Promise<Review[]> => {
   try {
@@ -93,44 +85,29 @@ export const getProviderReviews = async (providerId: string): Promise<Review[]> 
   }
 };
 
-export const getPendingReviews = async (): Promise<any[]> => apiRequest<any[]>('/reviews/pending', {}, true);
+export interface PendingReviewBooking {
+  id: string;
+  provider_id: string;
+  provider_user_id?: string;
+  provider_profile_id?: string | null;
+  service_date: string;
+  booking_number?: string;
+  provider_business_name?: string | null;
+  status?: string;
+}
 
-export const getReviewById = async (reviewId: string): Promise<Review> => {
-  const all = await getUserReviews();
-  const found = all.find((review) => review.id === reviewId);
-  if (!found) throw new Error('Review not found');
-  return found;
-};
+export const getPendingReviews = async (): Promise<PendingReviewBooking[]> =>
+  apiRequest<PendingReviewBooking[]>('/reviews/pending', {}, true);
 
-export const updateReview = async (_reviewId: string, _updates: UpdateReviewData): Promise<Review> => {
-  throw new Error('Review update endpoint not implemented yet');
-};
-
-export const deleteReview = async (_reviewId: string): Promise<void> => {
-  throw new Error('Review delete endpoint not implemented yet');
-};
-
-export const addHelpfulVote = async (_reviewId: string): Promise<void> => {
-  throw new Error('Helpful vote endpoint not implemented yet');
-};
-
-export const removeHelpfulVote = async (_reviewId: string): Promise<void> => {
-  throw new Error('Helpful vote endpoint not implemented yet');
-};
-
-export const checkHelpfulVote = async (_reviewId: string): Promise<boolean> => false;
-
-export const createReviewResponse = async (_reviewId: string, _responseText: string): Promise<ReviewResponse> => {
-  throw new Error('Review response endpoint not implemented yet');
-};
-
-export const updateReviewResponse = async (_responseId: string, _responseText: string): Promise<ReviewResponse> => {
-  throw new Error('Review response update endpoint not implemented yet');
-};
+export const getPendingReviewsForProvider = async (
+  providerId: string
+): Promise<PendingReviewBooking[]> =>
+  apiRequest<PendingReviewBooking[]>(`/reviews/pending/provider/${providerId}`, {}, true);
 
 export const getProviderReviewStats = async (providerId: string): Promise<ReviewStats> => {
   try {
-    return await apiRequest<ReviewStats>(`/reviews/stats/${providerId}`);
+    const raw = await apiRequest<ApiReviewStats>(`/reviews/stats/${providerId}`);
+    return mapStats(raw);
   } catch {
     return {
       total_reviews: 0,
@@ -140,18 +117,6 @@ export const getProviderReviewStats = async (providerId: string): Promise<Review
       three_star_count: 0,
       two_star_count: 0,
       one_star_count: 0,
-      avg_professionalism: 0,
-      avg_quality: 0,
-      avg_value: 0,
-      recommend_percentage: 0,
     };
   }
-};
-
-export const flagReview = async (
-  _reviewId: string,
-  _reason: 'spam' | 'inappropriate' | 'fake' | 'offensive' | 'other',
-  _details?: string
-): Promise<void> => {
-  throw new Error('Review flag endpoint not implemented yet');
 };

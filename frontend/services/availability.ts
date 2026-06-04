@@ -34,18 +34,41 @@ export interface CreateBlockedDate {
 export const getProviderAvailability = async (providerId: string): Promise<AvailabilitySchedule[]> =>
   apiRequest<AvailabilitySchedule[]>(`/availability/provider/${providerId}/schedules`);
 
+/** Public profile: weekly hours + blocked dates (profile id or auth user id) */
+export async function getPublicProviderAvailability(providerId: string): Promise<{
+  schedules: AvailabilitySchedule[];
+  blockedDates: BlockedDate[];
+}> {
+  const [schedulesResult, blockedResult] = await Promise.allSettled([
+    getProviderAvailability(providerId),
+    getBlockedDates(providerId),
+  ]);
+
+  return {
+    schedules: schedulesResult.status === 'fulfilled' ? schedulesResult.value : [],
+    blockedDates: blockedResult.status === 'fulfilled' ? blockedResult.value : [],
+  };
+}
+
+export const getMyAvailability = async (): Promise<AvailabilitySchedule[]> =>
+  apiRequest<AvailabilitySchedule[]>(`/availability/me/schedules`, {}, true);
+
 export const getAllAvailabilitySchedules = async (providerId: string): Promise<AvailabilitySchedule[]> =>
   getProviderAvailability(providerId);
 
 export const setAvailabilitySchedules = async (
-  providerId: string,
+  providerId: string | null,
   schedules: CreateAvailabilitySchedule[]
-): Promise<AvailabilitySchedule[]> =>
-  apiRequest<AvailabilitySchedule[]>(
-    `/availability/provider/${providerId}/schedules`,
-    { method: 'PUT', body: JSON.stringify({ schedules: schedules.map((s) => ({ ...s, provider_id: providerId })) }) },
+): Promise<AvailabilitySchedule[]> => {
+  const path = providerId
+    ? `/availability/provider/${providerId}/schedules`
+    : '/availability/me/schedules';
+  return apiRequest<AvailabilitySchedule[]>(
+    path,
+    { method: 'PUT', body: JSON.stringify({ schedules }) },
     true
   );
+};
 
 export const updateAvailabilitySchedule = async (
   scheduleId: string,

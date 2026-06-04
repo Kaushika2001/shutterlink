@@ -38,8 +38,8 @@ export class NotificationService {
       .from('notifications')
       .select('*')
       .eq('user_id', userId)
-      .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       if (isMissingTableError(error)) return [];
@@ -56,7 +56,10 @@ export class NotificationService {
       .eq('is_read', false)
       .order('created_at', { ascending: false });
 
-    if (error) throw new ValidationError('Failed to fetch unread notifications');
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      throw new ValidationError('Failed to fetch unread notifications');
+    }
     return data || [];
   }
 
@@ -67,7 +70,10 @@ export class NotificationService {
       .eq('user_id', userId)
       .eq('is_read', false);
 
-    if (error) throw new ValidationError('Failed to get unread count');
+    if (error) {
+      if (isMissingTableError(error)) return { count: 0 };
+      throw new ValidationError('Failed to get unread count');
+    }
     return { count: count || 0 };
   }
 

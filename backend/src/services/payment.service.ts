@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase';
+import { isPaymentSandboxMode } from '../config/env';
 import { NotFoundError, ValidationError, AuthorizationError } from '../utils/errors';
 import { isMissingColumnError, isMissingTableError } from '../utils/supabaseErrors';
 import { bookingService } from './booking.service';
@@ -94,20 +95,74 @@ export class PaymentService {
     return this.enrichCustomerPayments(payments);
   }
 
+  private async enrichProviderPayments(payments: any[]) {
+    if (payments.length === 0) return [];
+
+    const bookingIds = [...new Set(payments.map((p: any) => p.booking_id).filter(Boolean))] as string[];
+    let bookings: any[] = [];
+    if (bookingIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('bookings')
+        .select('id, booking_number, customer_id')
+        .in('id', bookingIds);
+      if (!error) bookings = data || [];
+    }
+
+    const customerIds = [...new Set(bookings.map((b) => b.customer_id).filter(Boolean))];
+    const userMap = new Map<string, string>();
+    if (customerIds.length > 0) {
+      const { data: users } = await supabaseAdmin.from('users').select('id, name').in('id', customerIds);
+      for (const u of users || []) userMap.set(u.id, u.name);
+    }
+
+    const bookingMap = new Map(bookings.map((b) => [b.id, b]));
+
+    return payments.map((p: any) => {
+      const booking = bookingMap.get(p.booking_id);
+      const gross = Number(p.amount) || 0;
+      const platformFee = Number(p.platform_fee) || 0;
+      const providerAmount =
+        p.provider_amount != null ? Number(p.provider_amount) : Math.max(0, gross - platformFee);
+
+      return {
+        ...p,
+        customer_id: p.customer_id || booking?.customer_id || null,
+        customer_name: booking?.customer_id ? userMap.get(booking.customer_id) || 'Customer' : 'Customer',
+        payment_method: p.payment_method || p.method || 'unknown',
+        payment_type: p.payment_type || 'deposit',
+        transaction_id: p.transaction_id || p.payment_gateway_id || null,
+        payment_date: p.paid_at || p.payment_date || p.created_at,
+        updated_at: p.updated_at || p.created_at,
+        provider_amount: providerAmount,
+        booking_number: booking?.booking_number || null,
+      };
+    });
+  }
+
   async getProviderPayments(userId: string) {
-    const { data: providerProfile, error: profileError } = await supabaseAdmin
+    const { data: providerProfile } = await supabaseAdmin
       .from('provider_profiles')
       .select('id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !providerProfile) throw new NotFoundError('Provider profile not found');
+    if (!providerProfile) return [];
 
     let { data, error } = await supabaseAdmin
       .from('payments')
       .select('*')
       .eq('provider_id', userId)
       .order('created_at', { ascending: false });
+
+    if ((!data || data.length === 0) && !error) {
+      const retry = await supabaseAdmin
+        .from('payments')
+        .select('*')
+        .eq('provider_id', providerProfile.id)
+        .order('created_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error && (isMissingColumnError(error) || isMissingTableError(error))) {
       const { data: all, error: allErr } = await supabaseAdmin
@@ -117,7 +172,9 @@ export class PaymentService {
       if (allErr && !isMissingTableError(allErr)) {
         throw new ValidationError(allErr.message || 'Failed to fetch provider payments');
       }
-      data = (all || []).filter((p: any) => p.provider_id === userId);
+      data = (all || []).filter(
+        (p: any) => p.provider_id === userId || p.provider_id === providerProfile.id
+      );
       error = null;
     }
 
@@ -126,13 +183,7 @@ export class PaymentService {
       throw new ValidationError(error.message || 'Failed to fetch provider payments');
     }
 
-    return (data || []).map((p: any) => ({
-      ...p,
-      payment_method: p.payment_method || p.method || 'unknown',
-      payment_type: p.payment_type || 'deposit',
-      transaction_id: p.transaction_id || p.payment_gateway_id || null,
-      updated_at: p.updated_at || p.created_at,
-    }));
+    return this.enrichProviderPayments(data || []);
   }
 
   async checkout(userId: string, bookingId: string, paymentMethod: string) {
@@ -254,6 +305,7 @@ export class PaymentService {
       mode: gatewayResult.mode,
       redirect_url: gatewayResult.redirectUrl,
       gateway_configured: isGatewayConfigured(paymentMethod),
+      sandbox: gatewayResult.sandbox ?? isPaymentSandboxMode(),
       message: gatewayResult.message,
     };
   }
@@ -425,11 +477,19 @@ export class PaymentService {
       return payment;
     }
 
+    const sandbox = isPaymentSandboxMode();
     const gatewayRef =
       transactionRef ||
-      `${paymentMethod.toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      (sandbox
+        ? `SBX-${paymentMethod.toUpperCase()}-${Date.now()}`
+        : `${paymentMethod.toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
-    if (isGatewayConfigured(paymentMethod) && paymentMethod !== 'card' && paymentMethod !== 'bank_transfer') {
+    if (
+      !sandbox &&
+      isGatewayConfigured(paymentMethod) &&
+      paymentMethod !== 'card' &&
+      paymentMethod !== 'bank_transfer'
+    ) {
       throw new ValidationError(
         'Gateway is configured. Complete payment on the OnePay/HelaPay redirect page or wait for the webhook.'
       );

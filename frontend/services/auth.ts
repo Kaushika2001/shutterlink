@@ -1,5 +1,12 @@
 import { apiRequest, tokenStorage } from '@/lib/api';
+import { supabaseSessionStorage, type StoredSupabaseSession } from '@/lib/supabase-session';
 import type { UserRole } from '@/types';
+
+function persistSupabaseSession(session?: StoredSupabaseSession | null) {
+  if (session?.access_token && session?.refresh_token) {
+    supabaseSessionStorage.set(session);
+  }
+}
 
 /* =========================
    REGISTER USER
@@ -11,7 +18,7 @@ export const signUp = async (
   role: UserRole,
   contactNumber?: string
 ) => {
-  const data = await apiRequest<{ user: any; token: string }>(
+  const data = await apiRequest<{ user: any; token: string; supabase_session?: StoredSupabaseSession | null }>(
     '/auth/register',
     {
       method: 'POST',
@@ -25,6 +32,7 @@ export const signUp = async (
     }
   );
   tokenStorage.set(data.token);
+  persistSupabaseSession(data.supabase_session);
   return data.user;
 };
 
@@ -32,7 +40,7 @@ export const signUp = async (
    LOGIN USER
 ========================= */
 export const signIn = async (email: string, password: string) => {
-  const data = await apiRequest<{ user: any; token: string }>(
+  const data = await apiRequest<{ user: any; token: string; supabase_session?: StoredSupabaseSession | null }>(
     '/auth/login',
     {
       method: 'POST',
@@ -40,6 +48,7 @@ export const signIn = async (email: string, password: string) => {
     }
   );
   tokenStorage.set(data.token);
+  persistSupabaseSession(data.supabase_session);
   return data.user;
 };
 
@@ -48,6 +57,10 @@ export const signIn = async (email: string, password: string) => {
 ========================= */
 export const signOut = async () => {
   tokenStorage.clear();
+  supabaseSessionStorage.clear();
+  const { getSupabaseClient } = await import('@/lib/supabase');
+  const client = await getSupabaseClient();
+  if (client) await client.auth.signOut();
 };
 
 /* =========================

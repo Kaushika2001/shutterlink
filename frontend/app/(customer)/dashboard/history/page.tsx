@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { getBookingHistory, type Booking } from "@/services/bookings"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,27 +11,34 @@ import { Clock, CalendarDays, MapPin } from "lucide-react"
 import { toast } from "sonner"
 
 export default function BookingHistoryPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!ready) return
+
     async function fetchBookings() {
-      if (!user) return
+      if (!isAuthenticated || !user) {
+        setBookings([])
+        setLoading(false)
+        return
+      }
 
       try {
         setLoading(true)
         const data = await getBookingHistory()
         setBookings(data)
-      } catch (error: any) {
-        toast.error(error?.message || "Failed to load booking history")
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Failed to load booking history")
+        setBookings([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchBookings()
-  }, [user])
+    void fetchBookings()
+  }, [user, ready, isAuthenticated])
 
   if (loading) {
     return (

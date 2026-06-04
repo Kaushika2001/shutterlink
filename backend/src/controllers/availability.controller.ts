@@ -1,9 +1,34 @@
 import { Request, Response } from 'express';
 import { availabilityService } from '../services/availability.service';
 import { AuthRequest } from '../middleware/auth.middleware';
-import { providerService } from '../services/provider.service';
 
 export class AvailabilityController {
+  async getMySchedules(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const schedules = await availabilityService.getSchedules(req.userId);
+      res.status(200).json({ success: true, data: schedules });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  async setMySchedules(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const schedules = await availabilityService.setSchedules(req.userId, req.body.schedules || []);
+      res.status(200).json({ success: true, data: schedules, message: 'Schedules updated' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
   async getSchedules(req: Request, res: Response): Promise<void> {
     try {
       const { providerId } = req.params;
@@ -21,11 +46,7 @@ export class AvailabilityController {
         return;
       }
       const { providerId } = req.params;
-      const provider = await providerService.getProviderById(providerId);
-      if (provider.user_id !== req.userId) {
-        res.status(403).json({ success: false, error: 'Not your provider profile' });
-        return;
-      }
+      await availabilityService.assertProviderOwnership(providerId, req.userId);
       const schedules = await availabilityService.setSchedules(providerId, req.body.schedules || []);
       res.status(200).json({ success: true, data: schedules, message: 'Schedules updated' });
     } catch (error: any) {
@@ -60,11 +81,7 @@ export class AvailabilityController {
         return;
       }
       const { provider_id, blocked_date, reason } = req.body;
-      const provider = await providerService.getProviderById(provider_id);
-      if (provider.user_id !== req.userId) {
-        res.status(403).json({ success: false, error: 'Not your provider profile' });
-        return;
-      }
+      await availabilityService.assertProviderOwnership(provider_id, req.userId);
       const blocked = await availabilityService.blockDate(provider_id, { blocked_date, reason });
       res.status(201).json({ success: true, data: blocked, message: 'Date blocked' });
     } catch (error: any) {

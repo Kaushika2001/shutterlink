@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -43,7 +43,7 @@ const packageSchema = z.object({
 type PackageFormData = z.infer<typeof packageSchema>
 
 export default function ProviderPackagesPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [packages, setPackages] = useState<ServicePackage[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -69,22 +69,26 @@ export default function ProviderPackagesPage() {
 
   // Load packages
   useEffect(() => {
+    if (!ready) return
+
     async function init() {
-      if (!user?.id) return
-      
-      // Get provider profile ID
+      if (!isAuthenticated || !user?.id) {
+        setLoading(false)
+        return
+      }
+
       const profileId = await getProviderProfileId(user.id)
       if (profileId) {
         setProviderProfileId(profileId)
-        loadPackages(profileId)
+        void loadPackages(profileId)
       } else {
         toast.error("Provider profile not found. Please complete your profile setup.")
         setLoading(false)
       }
     }
     
-    init()
-  }, [user])
+    void init()
+  }, [user, ready, isAuthenticated])
 
   async function loadPackages(profileId?: string) {
     const idToUse = profileId || providerProfileId

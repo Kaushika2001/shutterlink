@@ -10,6 +10,9 @@ export interface Payment {
   customer_id?: string;
   payer_id?: string;
   provider_name?: string | null;
+  customer_name?: string | null;
+  provider_amount?: number;
+  platform_fee?: number;
   booking_number?: string | null;
   amount: number;
   payment_type?: 'deposit' | 'full_payment' | 'refund' | string;
@@ -78,7 +81,19 @@ export interface CheckoutResponse {
   mode?: 'redirect' | 'simulate';
   redirect_url?: string;
   gateway_configured?: boolean;
+  sandbox?: boolean;
   message?: string;
+}
+
+export async function getPaymentSandboxMode(): Promise<boolean> {
+  try {
+    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    const res = await fetch(`${base}/config/public`);
+    const json = await res.json();
+    return Boolean(json?.data?.payment_sandbox_mode);
+  } catch {
+    return process.env.NODE_ENV !== 'production';
+  }
 }
 
 export const checkoutPayment = async (
@@ -117,7 +132,20 @@ export const completePayment = async (
 
 // Get all payments for the current user
 export const getUserPayments = async (): Promise<Payment[]> => {
-  return await apiRequest<Payment[]>('/payments/me', {}, true);
+  try {
+    const data = await apiRequest<Payment[] | null>('/payments/me', {}, true);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+};
+
+export const getProviderPayments = async (): Promise<Payment[]> => {
+  try {
+    return await apiRequest<Payment[]>('/payments/provider', {}, true);
+  } catch {
+    return [];
+  }
 };
 
 // Get payments for a specific booking

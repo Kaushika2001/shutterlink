@@ -112,7 +112,11 @@ export class MessagingService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      if (isMissingTableError(error)) return [];
+      if (isMissingTableError(error)) {
+        throw new ValidationError(
+          'Messages are not set up yet. Run migration 018_ensure_messages_and_notifications.sql in Supabase SQL Editor.'
+        );
+      }
       throw new ValidationError(error.message || 'Failed to fetch conversations');
     }
 

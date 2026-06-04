@@ -36,15 +36,29 @@ export interface CreateNotificationData {
 export const createNotification = async (payload: CreateNotificationData): Promise<Notification> =>
   apiRequest<Notification>('/notifications', { method: 'POST', body: JSON.stringify(payload) }, true);
 
-export const getUserNotifications = async (limit = 50, offset = 0): Promise<Notification[]> =>
-  apiRequest<Notification[]>(`/notifications?limit=${limit}&offset=${offset}`, {}, true);
+export const getUserNotifications = async (limit = 50, offset = 0): Promise<Notification[]> => {
+  try {
+    const data = await apiRequest<Notification[] | null>(
+      `/notifications?limit=${limit}&offset=${offset}`,
+      {},
+      true
+    );
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+};
 
 export const getUnreadNotifications = async (): Promise<Notification[]> =>
   apiRequest<Notification[]>('/notifications/unread', {}, true);
 
 export const getUnreadCount = async (): Promise<number> => {
-  const data = await apiRequest<{ count: number }>('/notifications/unread-count', {}, true);
-  return data.count || 0;
+  try {
+    const data = await apiRequest<{ count: number }>('/notifications/unread-count', {}, true);
+    return data?.count || 0;
+  } catch {
+    return 0;
+  }
 };
 
 export const getNotificationById = async (notificationId: string): Promise<Notification> => {

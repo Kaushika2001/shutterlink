@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
-import { getUserPayments, checkoutPayment, completePayment } from "@/services/payments"
+import { useAuthReady } from "@/hooks/use-auth-ready"
+import { getUserPayments, checkoutPayment, completePayment, getPaymentSandboxMode } from "@/services/payments"
 import { getCustomerBookings } from "@/services/bookings"
 import type { Booking } from "@/services/bookings"
 import type { Payment } from "@/services/payments"
@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { EmptyState } from "@/components/ui/empty-state"
-import { CreditCard, Receipt, Loader2, CheckCircle2 } from "lucide-react"
+import { CreditCard, Receipt, Loader2, CheckCircle2, FlaskConical } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 
 const paymentMethods = [
@@ -42,16 +43,30 @@ interface PaymentItem {
 }
 
 export default function CustomerPaymentsPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [selectedMethod, setSelectedMethod] = useState("onepay")
   const [isProcessing, setIsProcessing] = useState(false)
   const [showReceipt, setShowReceipt] = useState<string | null>(null)
   const [payments, setPayments] = useState<PaymentItem[]>([])
   const [pendingBookings, setPendingBookings] = useState<PendingBookingItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [sandboxMode, setSandboxMode] = useState(false)
 
   useEffect(() => {
+    void getPaymentSandboxMode().then(setSandboxMode)
+  }, [])
+
+  useEffect(() => {
+    if (!ready) return
+
     async function load() {
+      if (!isAuthenticated || !user) {
+        setPayments([])
+        setPendingBookings([])
+        setLoading(false)
+        return
+      }
+
       try {
         const allBookings = await getCustomerBookings()
         let allPayments: Awaited<ReturnType<typeof getUserPayments>> = []
@@ -91,26 +106,38 @@ export default function CustomerPaymentsPage() {
         setLoading(false)
       }
     }
-    load()
-  }, [])
+    void load()
+  }, [ready, isAuthenticated, user])
 
   async function handlePayment(bookingId: string, amount: number) {
     setIsProcessing(true)
     try {
       const checkout = await checkoutPayment(bookingId, selectedMethod)
 
-      if (checkout.mode === "redirect" && checkout.redirect_url) {
+      if (checkout.mode === "redirect" && checkout.redirect_url && !checkout.sandbox) {
         window.location.href = checkout.redirect_url
         return
       }
 
-      if (checkout.gateway_configured && (selectedMethod === "onepay" || selectedMethod === "helapay")) {
+      if (
+        !checkout.sandbox &&
+        checkout.gateway_configured &&
+        (selectedMethod === "onepay" || selectedMethod === "helapay")
+      ) {
         toast.error("Complete payment on the gateway page. If you already paid, open Payments again to sync.")
         return
       }
 
-      await completePayment(checkout.payment.id, selectedMethod)
-      toast.success("Payment successful! Your booking is now confirmed.")
+      await completePayment(
+        checkout.payment.id,
+        selectedMethod,
+        checkout.sandbox ? `SBX-${Date.now()}` : undefined
+      )
+      toast.success(
+        checkout.sandbox
+          ? "Sandbox payment recorded. Deposit marked as paid for your booking."
+          : "Payment successful! Your booking deposit is recorded."
+      )
       setPendingBookings((prev) => prev.filter((b) => b.id !== bookingId))
       const refreshed = await getUserPayments()
       setPayments(
@@ -146,6 +173,17 @@ export default function CustomerPaymentsPage() {
         <h1 className="text-2xl font-bold text-foreground">Payments</h1>
         <p className="text-muted-foreground">Manage your payments and view transaction history</p>
       </div>
+
+      {sandboxMode && (
+        <Alert className="border-amber-500/30 bg-amber-500/10">
+          <FlaskConical className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-foreground">Payment sandbox</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            Test mode is on — no real charges. Use Pay (Sandbox) to simulate OnePay, HelaPay, or card payments.
+            Set <code className="text-xs">PAYMENT_SANDBOX_MODE=false</code> in backend .env for live gateways.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {pendingBookings.length > 0 && (
         <Card className="border-primary/20 bg-primary/5">
@@ -204,7 +242,11 @@ export default function CustomerPaymentsPage() {
                             className="w-full bg-primary text-primary-foreground"
                           >
                             {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                            {isProcessing ? "Processing..." : `Pay LKR ${booking.total_amount.toLocaleString()}`}
+                            {isProcessing
+                              ? "Processing..."
+                              : sandboxMode
+                                ? `Pay (Sandbox) LKR ${booking.total_amount.toLocaleString()}`
+                                : `Pay LKR ${booking.total_amount.toLocaleString()}`}
                           </Button>
                         </div>
                       </DialogContent>

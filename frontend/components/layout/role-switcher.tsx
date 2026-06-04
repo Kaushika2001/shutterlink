@@ -50,25 +50,6 @@ export function RoleSwitcher() {
             </span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            Switch Demo Role (Dev Only)
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {roles.map((r) => (
-            <DropdownMenuItem
-              key={r.role}
-              onClick={() => handleSwitch(r.role, r.redirect)}
-              className={`flex items-center gap-2 ${user?.role === r.role ? "bg-primary/10 text-primary" : ""}`}
-            >
-              {r.icon}
-              {r.label}
-              {user?.role === r.role && (
-                <span className="ml-auto text-[10px] font-medium text-primary">Active</span>
-              )}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
       </DropdownMenu>
     </div>
   )

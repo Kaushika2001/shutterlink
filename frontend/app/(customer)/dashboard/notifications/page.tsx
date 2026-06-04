@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { getUserNotifications, markNotificationAsRead, markAllAsRead } from "@/services/notifications"
 import type { Notification } from "@/services/notifications"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,18 +10,27 @@ import { Loader2, Bell } from "lucide-react"
 import { toast } from "sonner"
 
 export default function CustomerNotificationsPage() {
+  const { ready, isAuthenticated } = useAuthReady()
   const [items, setItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    load()
-  }, [])
+    if (!ready) return
+    void load()
+  }, [ready, isAuthenticated])
 
   async function load() {
+    if (!isAuthenticated) {
+      setItems([])
+      setLoading(false)
+      return
+    }
     try {
+      setLoading(true)
       setItems(await getUserNotifications())
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load notifications")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load notifications")
+      setItems([])
     } finally {
       setLoading(false)
     }

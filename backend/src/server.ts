@@ -1,6 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
-import config, { isCloudinaryConfigured } from './config/env';
+import config, { isCloudinaryConfigured, isPaymentSandboxMode } from './config/env';
 import { assertSupabaseAdminConfigured, isServiceRoleConfigured } from './config/supabase';
 import { isOnepayConfigured, isPayhereConfigured } from './services/gateways';
 import { corsConfig } from './middleware/corsConfig';
@@ -16,6 +16,7 @@ import { notificationRoutes } from './routes/notification.routes';
 import { messagingRoutes } from './routes/messaging.routes';
 import { portfolioRoutes } from './routes/portfolio.routes';
 import { adminRoutes } from './routes/admin.routes';
+import { configRoutes } from './routes/config.routes';
 
 const app: Express = express();
 
@@ -38,16 +39,30 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 app.get('/api/health/schema', async (_req: Request, res: Response) => {
   const { supabaseAdmin } = await import('./config/supabase');
-  const tables = ['bookings', 'messages', 'notifications', 'payments'];
+  const tables = [
+    'bookings',
+    'messages',
+    'notifications',
+    'payments',
+    'reviews',
+    'availability_schedules',
+    'blocked_dates',
+  ];
   const status: Record<string, boolean> = {};
   for (const table of tables) {
     const { error } = await supabaseAdmin.from(table).select('id').limit(1);
     status[table] = !error;
   }
+  const { error: reviewsProviderCol } = await supabaseAdmin
+    .from('reviews')
+    .select('provider_id')
+    .limit(1);
+  status.reviews_provider_id_column = !reviewsProviderCol;
   res.json({ success: true, tables: status });
 });
 
 // API Routes
+app.use('/api/config', configRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/providers', providerRoutes);
 app.use('/api/bookings', bookingRoutes);
@@ -98,6 +113,11 @@ app.listen(PORT, () => {
     isPayhereConfigured()
       ? '✓ HelaPay/PayHere gateway configured'
       : '○ HelaPay/PayHere: not configured (simulate mode for helapay)'
+  );
+  console.log(
+    isPaymentSandboxMode()
+      ? '✓ Payments: SANDBOX mode (no live gateway charges)'
+      : '○ Payments: live gateway mode (PAYMENT_SANDBOX_MODE=false)'
   );
 });
 

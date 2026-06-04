@@ -79,17 +79,28 @@ export const createBooking = async (bookingData: CreateBookingData): Promise<Boo
 
 // Get all bookings for the current user (customer)
 export const getCustomerBookings = async (): Promise<Booking[]> => {
-  return await apiRequest<Booking[]>('/bookings/customer', {}, true);
+  const data = await apiRequest<Booking[] | null>('/bookings/customer', {}, true);
+  return Array.isArray(data) ? data : [];
 };
 
 // Get upcoming bookings for the current user
 export const getUpcomingBookings = async (): Promise<Booking[]> => {
-  return await apiRequest<Booking[]>('/bookings/upcoming?isProvider=false', {}, true);
+  try {
+    const data = await apiRequest<Booking[] | null>('/bookings/upcoming?isProvider=false', {}, true);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 };
 
 // Get booking history (completed or cancelled)
 export const getBookingHistory = async (): Promise<Booking[]> => {
-  return await apiRequest<Booking[]>('/bookings/history?isProvider=false', {}, true);
+  try {
+    const data = await apiRequest<Booking[] | null>('/bookings/history?isProvider=false', {}, true);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 };
 
 // Get bookings that need payment
@@ -146,7 +157,12 @@ export const cancelBooking = async (
 
 // Get all bookings for a provider
 export const getProviderBookings = async (): Promise<Booking[]> => {
-  return await apiRequest<Booking[]>('/bookings/provider', {}, true);
+  try {
+    const data = await apiRequest<Booking[] | null>('/bookings/provider', {}, true);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
 };
 
 // Provider confirms booking

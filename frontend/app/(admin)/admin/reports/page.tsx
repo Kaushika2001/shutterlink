@@ -112,29 +112,21 @@ export default function AdminReportsPage() {
           title="Total Revenue"
           value={`LKR ${(totalRevenue / 1000).toFixed(0)}K`}
           icon={<TrendingUp className="h-5 w-5" />}
-          change={22.1}
-          trend="up"
         />
         <StatCard
           title="Completed Bookings"
           value={completedBookings}
           icon={<BookOpen className="h-5 w-5" />}
-          change={15.2}
-          trend="up"
         />
         <StatCard
           title="Active Providers"
           value={activeProviders}
           icon={<Users className="h-5 w-5" />}
-          change={8.3}
-          trend="up"
         />
         <StatCard
           title="Avg. Booking Value"
           value={`LKR ${Math.round(totalRevenue / (completedBookings || 1)).toLocaleString()}`}
           icon={<CreditCard className="h-5 w-5" />}
-          change={5.8}
-          trend="up"
         />
       </div>
 

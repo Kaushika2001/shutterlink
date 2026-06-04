@@ -94,3 +94,20 @@ CREATE POLICY "System can create notifications" ON public.notifications
 DROP POLICY IF EXISTS "service_role_all_notifications" ON public.notifications;
 CREATE POLICY "service_role_all_notifications" ON public.notifications
     FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+-- ========== Realtime (live chat) ==========
+ALTER TABLE public.messages REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'messages'
+    ) THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+    END IF;
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END $$;

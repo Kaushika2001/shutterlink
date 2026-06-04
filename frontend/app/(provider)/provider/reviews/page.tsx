@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
-import { getProviderReviews } from "@/services/reviews"
+import { useAuthReady } from "@/hooks/use-auth-ready"
+import { getProviderReviews, getProviderReviewStats } from "@/services/reviews"
 import { getProviderProfile } from "@/services/provider"
 import { StarRating } from "@/components/ui/star-rating"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,53 +23,78 @@ interface ReviewDisplay {
 }
 
 export default function ProviderReviewsPage() {
-  const { user } = useAuth()
+  const { user, ready, isAuthenticated } = useAuthReady()
   const [reviews, setReviews] = useState<ReviewDisplay[]>([])
+  const [stats, setStats] = useState({ average_rating: 0, total_reviews: 0, distribution: {} as Record<number, number> })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) return
+    if (!ready) return
 
     const fetchReviews = async () => {
+      if (!isAuthenticated || !user) {
+        setReviews([])
+        setLoading(false)
+        return
+      }
+
       try {
+        setLoading(true)
         const profile = await getProviderProfile(user.id)
         if (!profile) {
-          toast.error("Provider profile not found")
+          toast.error("Create your provider profile first")
           setLoading(false)
           return
         }
 
-        const data = await getProviderReviews(profile.id)
+        const [data, stats] = await Promise.all([
+          getProviderReviews(profile.id),
+          getProviderReviewStats(profile.id),
+        ])
         setReviews(
           data.map((r: ServiceReview) => ({
             id: r.id,
             booking_id: r.booking_id,
-            customer_id: r.reviewer_id,
-            customer_name: r.reviewer_name || "Anonymous",
+            customer_id: r.customer_id || r.reviewer_id || "",
+            customer_name: r.customer_name || r.reviewer_name || "Customer",
             provider_id: r.provider_id,
             rating: r.rating,
             comment: r.comment || "",
             created_at: r.created_at,
           }))
         )
-      } catch (err) {
-        toast.error("Failed to load reviews")
-        console.error(err)
+        setStats({
+          average_rating: stats.average_rating,
+          total_reviews: stats.total_reviews,
+          distribution: {
+            1: stats.one_star_count,
+            2: stats.two_star_count,
+            3: stats.three_star_count,
+            4: stats.four_star_count,
+            5: stats.five_star_count,
+          },
+        })
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Failed to load reviews")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchReviews()
-  }, [user])
+    void fetchReviews()
+  }, [user, ready, isAuthenticated])
 
-  const avgRating = reviews.length > 0 ? reviews.reduce((a, r) => a + r.rating, 0) / reviews.length : 0
+  const avgRating = stats.total_reviews > 0 ? stats.average_rating : 0
+  const totalReviews = stats.total_reviews
 
-  const ratingDist = [5, 4, 3, 2, 1].map((star) => ({
-    star,
-    count: reviews.filter((r) => r.rating === star).length,
-    pct: reviews.length > 0 ? (reviews.filter((r) => r.rating === star).length / reviews.length) * 100 : 0,
-  }))
+  const ratingDist = [5, 4, 3, 2, 1].map((star) => {
+    const count = stats.distribution[star] || 0
+    return {
+      star,
+      count,
+      pct: totalReviews > 0 ? (count / totalReviews) * 100 : 0,
+    }
+  })
 
   if (loading) {
     return (
@@ -86,13 +111,13 @@ export default function ProviderReviewsPage() {
         <p className="text-muted-foreground">See what your clients say about your services</p>
       </div>
 
-      {reviews.length > 0 && (
+      {totalReviews > 0 && (
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="border-border bg-card">
             <CardContent className="flex flex-col items-center justify-center p-8">
               <p className="text-5xl font-bold text-primary">{avgRating.toFixed(1)}</p>
               <StarRating rating={avgRating} size={20} className="mt-2" />
-              <p className="mt-2 text-sm text-muted-foreground">{reviews.length} total reviews</p>
+              <p className="mt-2 text-sm text-muted-foreground">{totalReviews} total reviews</p>
             </CardContent>
           </Card>
           <Card className="border-border bg-card">

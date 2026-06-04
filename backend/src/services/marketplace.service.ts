@@ -114,24 +114,8 @@ export class MarketplaceService {
   }
 
   async getProviderReviews(providerId: string) {
-    const { data: profile } = await supabaseAdmin
-      .from('provider_profiles')
-      .select('user_id')
-      .eq('id', providerId)
-      .maybeSingle();
-
-    const providerUserId = profile?.user_id;
-    const idFilter = providerUserId
-      ? `provider_id.eq.${providerId},provider_id.eq.${providerUserId}`
-      : `provider_id.eq.${providerId}`;
-
-    const { data, error } = await supabaseAdmin
-      .from('reviews')
-      .select('*')
-      .or(idFilter)
-      .order('created_at', { ascending: false });
-    if (error) throw new ValidationError(error.message);
-    return data || [];
+    const { reviewService } = await import('./review.service');
+    return reviewService.getProviderReviews(providerId);
   }
 
   async getPendingReviews(userId: string) {

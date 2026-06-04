@@ -16,8 +16,11 @@ import {
   MapPin,
   Images,
   Package,
+  Star,
   X,
 } from "lucide-react"
+import { WriteProviderReview } from "@/components/reviews/write-provider-review"
+import type { Review } from "@/services/reviews"
 import { getProviderWithDetails } from "@/services/provider"
 import { getProviderReviews } from "@/services/reviews"
 import { getPortfolioItems } from "@/services/portfolio"
@@ -32,7 +35,7 @@ export default function ExplorePortfolioAlbumPage({
 }) {
   const { providerId } = use(params)
   const [provider, setProvider] = useState<any>(null)
-  const [reviews, setReviews] = useState<any[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>("all")
@@ -211,6 +214,9 @@ export default function ExplorePortfolioAlbumPage({
               <TabsTrigger value="packages">
                 Service Packages ({packages.length})
               </TabsTrigger>
+              <TabsTrigger value="reviews">
+                Reviews ({reviews.length})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="album" className="space-y-6">
@@ -270,6 +276,47 @@ export default function ExplorePortfolioAlbumPage({
                 <div className="py-16 text-center text-muted-foreground">
                   No portfolio photos in this category yet.
                 </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="reviews" className="space-y-6">
+              <WriteProviderReview
+                providerId={provider.id}
+                providerUserId={provider.user_id}
+                providerName={provider.business_name || "this provider"}
+                existingReviews={reviews}
+                onReviewSubmitted={async () => {
+                  setReviews(await getProviderReviews(providerId))
+                }}
+              />
+              {reviews.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {reviews.map((review) => (
+                    <Card key={review.id} className="border-border bg-card">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-foreground">
+                            {review.customer_name || review.reviewer_name || "Customer"}
+                          </p>
+                          <StarRating rating={review.rating} size={14} />
+                        </div>
+                        {review.comment && (
+                          <p className="mt-2 text-sm text-muted-foreground">{review.comment}</p>
+                        )}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {new Date(review.created_at).toLocaleDateString()}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="border-border bg-card">
+                  <CardContent className="flex flex-col items-center py-12 text-center text-muted-foreground">
+                    <Star className="mb-2 h-8 w-8 opacity-40" />
+                    <p>No reviews yet. Be the first after a completed booking.</p>
+                  </CardContent>
+                </Card>
               )}
             </TabsContent>
 

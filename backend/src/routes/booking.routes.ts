@@ -15,7 +15,7 @@ bookingRoutes.get('/upcoming', authenticate, (req, res) => bookingController.get
 bookingRoutes.get('/history', authenticate, (req, res) => bookingController.getBookingHistory(req as any, res));
 bookingRoutes.get('/availability', (req, res) => bookingController.checkAvailability(req, res));
 bookingRoutes.get('/stats', authenticate, (req, res) => bookingController.getStats(req as any, res));
-bookingRoutes.get('/:bookingId', authenticate, (req, res) => bookingController.getBookingById(req, res));
+bookingRoutes.get('/:bookingId', authenticate, (req, res) => bookingController.getBookingById(req as any, res));
 bookingRoutes.put('/:bookingId/confirm', authenticate, authorize('provider'), (req, res) =>
   bookingController.confirmBooking(req as any, res)
 );

@@ -1,9 +1,120 @@
 import { supabaseAdmin } from '../config/supabase';
 import { generateToken } from '../utils/jwt';
-import { ProviderProfile, CreateProviderPayload, ProviderSearchOptions } from '../types';
+import { ProviderProfile, CreateProviderPayload, ProviderSearchOptions, ProviderType } from '../types';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class ProviderService {
+  normalizeProfileBody(body: Record<string, unknown>): CreateProviderPayload {
+    const allowed: ProviderType[] = ['photographer', 'editor', 'equipment_renter'];
+    const rawTypes = Array.isArray(body.service_type) ? (body.service_type as string[]) : ['photographer'];
+    let service_type: ProviderType[] = rawTypes
+      .map((t) => (t === 'videographer' ? 'photographer' : t))
+      .filter((t): t is ProviderType => allowed.includes(t as ProviderType));
+    if (service_type.length === 0) service_type = ['photographer'];
+
+    let equipment_list: string[] = [];
+    if (typeof body.equipment_list === 'string') {
+      equipment_list = body.equipment_list.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    } else if (Array.isArray(body.equipment_list)) {
+      equipment_list = body.equipment_list as string[];
+    }
+
+    let coverage_areas: string[] = [];
+    if (Array.isArray(body.coverage_areas)) {
+      coverage_areas = body.coverage_areas as string[];
+    } else if (typeof body.coverage_areas === 'string') {
+      coverage_areas = body.coverage_areas.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    const social = (body.social_urls as Record<string, string>) || {};
+
+    return {
+      business_name: String(body.business_name || 'My Business').trim(),
+      service_type,
+      specializations: Array.isArray(body.specializations) ? (body.specializations as string[]) : [],
+      years_experience: Math.max(0, Number(body.years_experience) || 0),
+      hourly_rate: Math.max(0, Number(body.hourly_rate) || 0),
+      bio: body.bio ? String(body.bio) : undefined,
+      equipment_list,
+      coverage_areas,
+      max_travel_distance:
+        body.max_travel_distance != null ? Math.max(0, Number(body.max_travel_distance)) : undefined,
+      social_urls: {
+        instagram: String(body.instagram_url || social.instagram || ''),
+        facebook: String(body.facebook_url || social.facebook || ''),
+        twitter: String(body.twitter_url || social.twitter || ''),
+        linkedin: String(body.linkedin_url || social.linkedin || ''),
+      },
+    };
+  }
+
+  async upsertProfileFromBody(userId: string, body: Record<string, unknown>) {
+    const payload = this.normalizeProfileBody(body);
+    const row: Record<string, unknown> = {
+      ...payload,
+      portfolio_url: body.portfolio_url ?? null,
+      availability_status: body.availability_status || 'available',
+      response_time_hours:
+        body.response_time_hours != null ? Math.max(1, Number(body.response_time_hours)) : undefined,
+    };
+
+    const { data: existingProvider } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('id, total_bookings, average_rating, response_time_hours')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingProvider) {
+      const { data: updated, error } = await supabaseAdmin
+        .from('provider_profiles')
+        .update(row)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error || !updated) {
+        console.error('Failed to update provider profile:', error);
+        throw new ValidationError(error?.message || 'Failed to update provider profile');
+      }
+      return { provider: updated as ProviderProfile, token: undefined };
+    }
+
+    const insertRow = {
+      ...row,
+      user_id: userId,
+      is_verified: true,
+      total_bookings: 0,
+      average_rating: 0,
+      response_time_hours:
+        row.response_time_hours != null ? row.response_time_hours : 24,
+    };
+
+    const { data: created, error } = await supabaseAdmin
+      .from('provider_profiles')
+      .insert([insertRow])
+      .select()
+      .single();
+
+    if (error || !created) {
+      console.error('Failed to create provider profile:', error);
+      throw new ValidationError(error?.message || 'Failed to create provider profile');
+    }
+
+    let newToken: string | undefined;
+    const { data: currentUser } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (currentUser && currentUser.role !== 'provider') {
+      await supabaseAdmin.from('users').update({ role: 'provider' }).eq('id', userId);
+      newToken = generateToken({ userId, email: '', role: 'provider' });
+    }
+
+    return { provider: created as ProviderProfile, token: newToken };
+  }
+
   async getProviderProfile(userId: string): Promise<ProviderProfile> {
     const { data: provider, error } = await supabaseAdmin
       .from('provider_profiles')

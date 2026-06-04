@@ -18,9 +18,16 @@ export interface User {
   is_verified: boolean;
 }
 
+export interface SupabaseSessionPayload {
+  access_token: string;
+  refresh_token: string;
+}
+
 export interface AuthResponse {
   user: User;
   token: string;
+  /** Supabase session for Realtime subscriptions in the browser */
+  supabase_session?: SupabaseSessionPayload | null;
 }
 
 export interface RegisterPayload {

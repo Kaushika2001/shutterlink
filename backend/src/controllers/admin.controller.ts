@@ -12,6 +12,15 @@ export class AdminController {
     }
   }
 
+  async getReports(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const data = await adminService.getReports();
+      res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
   async getRecentBookings(req: AuthRequest, res: Response): Promise<void> {
     try {
       const limit = Number(req.query.limit) || 10;

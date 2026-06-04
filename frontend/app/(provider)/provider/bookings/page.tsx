@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,22 +13,30 @@ import { getProviderBookings, confirmBooking, rejectBooking, completeBooking } f
 import type { Booking } from "@/services/bookings"
 
 export default function ProviderBookingsPage() {
+  const { ready, isAuthenticated } = useAuthReady()
   const [statusFilter, setStatusFilter] = useState("all")
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadBookings()
-  }, [])
+    if (!ready) return
+    void loadBookings()
+  }, [ready, isAuthenticated])
 
   async function loadBookings() {
+    if (!isAuthenticated) {
+      setBookings([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const data = await getProviderBookings()
       setBookings(data)
-    } catch {
-      toast.error("Failed to load bookings")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load bookings")
+      setBookings([])
     } finally {
       setLoading(false)
     }

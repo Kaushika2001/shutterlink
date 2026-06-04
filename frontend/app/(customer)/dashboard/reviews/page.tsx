@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/context/auth-context"
+import { Suspense, useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import { useAuthReady } from "@/hooks/use-auth-ready"
 import { getUserReviews, getPendingReviews, createReview, type Review, type CreateReviewData } from "@/services/reviews"
 import { StarRating } from "@/components/ui/star-rating"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,8 +14,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Star, Loader2, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 
-export default function CustomerReviewsPage() {
-  const { user } = useAuth()
+function CustomerReviewsContent() {
+  const { user, ready, isAuthenticated } = useAuthReady()
+  const searchParams = useSearchParams()
+  const bookingFromUrl = searchParams.get("booking")
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -24,26 +27,36 @@ export default function CustomerReviewsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!ready) return
+
     const fetchReviews = async () => {
-      if (!user) return
-      
+      if (!isAuthenticated || !user) {
+        setMyReviews([])
+        setPendingReviews([])
+        setLoading(false)
+        return
+      }
+
       try {
         setLoading(true)
         const [reviewsData, pendingData] = await Promise.all([
           getUserReviews(),
-          getPendingReviews()
+          getPendingReviews(),
         ])
         setMyReviews(reviewsData)
         setPendingReviews(pendingData)
-      } catch (error: any) {
-        toast.error(error?.message || "Failed to load reviews")
+        if (bookingFromUrl && pendingData.some((b: { id: string }) => b.id === bookingFromUrl)) {
+          setReviewingBooking(bookingFromUrl)
+        }
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Failed to load reviews")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchReviews()
-  }, [user])
+    void fetchReviews()
+  }, [user, ready, isAuthenticated, bookingFromUrl])
 
   async function handleSubmitReview(bookingId: string) {
     if (rating === 0) {
@@ -56,10 +69,8 @@ export default function CustomerReviewsPage() {
       
       const reviewData: CreateReviewData = {
         booking_id: bookingId,
-        provider_id: "",
         rating: rating,
         comment: comment || undefined,
-        would_recommend: rating >= 4,
       }
       
       await createReview(reviewData)
@@ -185,5 +196,13 @@ export default function CustomerReviewsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function CustomerReviewsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+      <CustomerReviewsContent />
+    </Suspense>
   )
 }

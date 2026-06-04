@@ -43,9 +43,10 @@ export interface ProviderSearchFilters {
 /* =========================
    GET PROVIDER PROFILE
 ========================= */
-export const getProviderProfile = async (userId: string): Promise<ProviderProfile | null> => {
+export const getProviderProfile = async (_userId?: string): Promise<ProviderProfile | null> => {
   try {
-    return await apiRequest<ProviderProfile>('/providers/profile', {}, true);
+    const data = await apiRequest<ProviderProfile | null>('/providers/profile', {}, true);
+    return data;
   } catch {
     return null;
   }

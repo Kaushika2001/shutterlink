@@ -20,19 +20,23 @@ import {
   Clock,
   Camera,
   Loader2,
+  Star,
 } from "lucide-react"
 import { PackageCard } from "@/components/cards/package-card"
 import { getProviderWithDetails } from "@/services/provider"
-import { getProviderReviews } from "@/services/reviews"
+import { getProviderReviews, type Review } from "@/services/reviews"
 import type { PackageWithProvider } from "@/services/packages"
+import { WriteProviderReview } from "@/components/reviews/write-provider-review"
+import { ProviderPublicAvailability } from "@/components/provider/provider-public-availability"
 import { toast } from "sonner"
 
 export default function ProviderProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [provider, setProvider] = useState<any>(null)
-  const [reviews, setReviews] = useState<any[]>([])
+  const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState("portfolio")
 
   // Load provider data
   useEffect(() => {
@@ -164,13 +168,14 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
               </Card>
 
               {/* Tabs */}
-              <Tabs defaultValue="portfolio">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="mb-4 w-full justify-start bg-muted">
                   <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
                   <TabsTrigger value="packages">
                     Packages ({(provider.service_packages || []).filter((p: any) => p.is_active).length})
                   </TabsTrigger>
                   <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
+                  <TabsTrigger value="availability">Availability</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="portfolio">
@@ -245,20 +250,51 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
                   })()}
                 </TabsContent>
 
-                <TabsContent value="reviews">
+                <TabsContent value="availability">
+                  <Card className="border-border bg-card">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        When they&apos;re available
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ProviderPublicAvailability
+                        providerId={provider.id}
+                        availabilityStatus={provider.availability_status}
+                        responseTimeHours={provider.response_time_hours}
+                      />
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="reviews" className="space-y-6">
+                  <WriteProviderReview
+                    providerId={provider.id}
+                    providerUserId={provider.user_id || provider.user?.id || provider.id}
+                    providerName={provider.business_name || "this provider"}
+                    existingReviews={reviews}
+                    onReviewSubmitted={async () => {
+                      setReviews(await getProviderReviews(id))
+                    }}
+                  />
                   {reviews.length > 0 ? (
                     <div className="flex flex-col gap-4">
-                      {reviews.map((review: any) => (
+                      {reviews.map((review) => (
                         <Card key={review.id} className="border-border bg-card">
                           <CardContent className="p-5">
                             <div className="mb-2 flex items-center justify-between">
                               <div>
-                                <p className="font-medium text-card-foreground">{review.reviewer?.full_name || 'Anonymous'}</p>
+                                <p className="font-medium text-card-foreground">{review.customer_name || review.reviewer_name || 'Customer'}</p>
                                 <p className="text-xs text-muted-foreground">{new Date(review.created_at).toLocaleDateString()}</p>
                               </div>
                               <StarRating rating={review.rating} size={14} />
                             </div>
-                            <p className="text-sm leading-relaxed text-muted-foreground">{review.comment}</p>
+                            {review.comment ? (
+                              <p className="text-sm leading-relaxed text-muted-foreground">{review.comment}</p>
+                            ) : (
+                              <p className="text-sm italic text-muted-foreground">No written comment.</p>
+                            )}
                           </CardContent>
                         </Card>
                       ))}
@@ -283,6 +319,14 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
                         <Calendar className="mr-2 h-4 w-4" /> Book Now
                       </Link>
                     </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2 w-full"
+                      onClick={() => setActiveTab("reviews")}
+                    >
+                      <Star className="mr-2 h-4 w-4" /> Leave a review
+                    </Button>
                     {provider.hourly_rate && (
                       <p className="mt-3 text-center text-xs text-muted-foreground">
                         LKR {provider.hourly_rate.toLocaleString()} per hour
@@ -298,17 +342,20 @@ export default function ProviderProfilePage({ params }: { params: Promise<{ id: 
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="rounded-lg bg-muted/50 px-3 py-2">
-                      <span className={`text-sm font-medium ${
-                        provider.availability_status === 'available' ? 'text-green-600' :
-                        provider.availability_status === 'busy' ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
-                        {provider.availability_status === 'available' ? '● Available' :
-                         provider.availability_status === 'busy' ? '● Busy' :
-                         '● Unavailable'}
-                      </span>
-                    </div>
+                    <ProviderPublicAvailability
+                      providerId={provider.id}
+                      availabilityStatus={provider.availability_status}
+                      responseTimeHours={provider.response_time_hours}
+                      compact
+                    />
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="mt-2 h-auto p-0 text-xs"
+                      onClick={() => setActiveTab("availability")}
+                    >
+                      View full schedule
+                    </Button>
                   </CardContent>
                 </Card>
 
