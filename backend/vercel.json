@@ -9,14 +9,12 @@
       "permanent": false
     }
   ],
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api"
-    }
-  ],
   "functions": {
-    "api/index.js": {
+    "api/health.js": {
+      "maxDuration": 5,
+      "memory": 128
+    },
+    "api/[[...path]].js": {
       "maxDuration": 10,
       "memory": 1024
     }
