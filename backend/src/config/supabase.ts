@@ -35,7 +35,7 @@ export function assertSupabaseAdminConfigured(): void {
         '  Add it from Supabase Dashboard → Project Settings → API → service_role (secret).\n' +
         '  Without it, bookings and other writes fail with RLS errors (code 42501).\n'
     );
-    if (config.NODE_ENV === 'production') {
+    if (config.NODE_ENV === 'production' && process.env.VERCEL !== '1') {
       process.exit(1);
     }
   }

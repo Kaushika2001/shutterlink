@@ -1,10 +1,11 @@
 import config from './config/env';
-import app from './app';
+import getApp from './app';
 import { isCloudinaryConfigured, isPaymentSandboxMode } from './config/env';
 import { isServiceRoleConfigured } from './config/supabase';
 import { isOnepayConfigured, isPayhereConfigured } from './services/gateways';
 
 const PORT = config.PORT;
+const app = getApp();
 
 app.listen(PORT, config.HOST, () => {
   console.log(`✓ Backend server running on http://${config.HOST}:${PORT}`);

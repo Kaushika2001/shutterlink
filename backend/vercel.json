@@ -2,16 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "installCommand": "npm install --include=dev",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api"
-    }
-  ],
   "functions": {
-    "api/index.ts": {
-      "maxDuration": 60,
+    "api/[[...path]].ts": {
+      "maxDuration": 10,
       "memory": 1024
+    },
+    "api/health.ts": {
+      "maxDuration": 5,
+      "memory": 256
     }
   }
 }

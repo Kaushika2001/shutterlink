@@ -6,25 +6,14 @@ import config, {
   isPaymentSandboxMode,
   validateProductionEnv,
 } from './config/env';
-import { assertSupabaseAdminConfigured, isServiceRoleConfigured } from './config/supabase';
+import { isServiceRoleConfigured } from './config/supabase';
 import { corsConfig } from './middleware/corsConfig';
 import { errorHandler } from './middleware/errorHandler';
-import { authRoutes } from './routes/auth.routes';
-import { providerRoutes } from './routes/provider.routes';
-import { bookingRoutes } from './routes/booking.routes';
-import { marketplaceRoutes } from './routes/marketplace.routes';
-import { reviewRoutes } from './routes/review.routes';
-import { paymentRoutes } from './routes/payment.routes';
-import { availabilityRoutes } from './routes/availability.routes';
-import { notificationRoutes } from './routes/notification.routes';
-import { messagingRoutes } from './routes/messaging.routes';
-import { portfolioRoutes } from './routes/portfolio.routes';
-import { adminRoutes } from './routes/admin.routes';
-import { configRoutes } from './routes/config.routes';
 
 const isVercel = process.env.VERCEL === '1';
 
 function bootstrapChecks(): void {
+  const { assertSupabaseAdminConfigured } = require('./config/supabase');
   assertSupabaseAdminConfigured();
   const prodIssues = validateProductionEnv();
   if (prodIssues.length === 0) return;
@@ -39,6 +28,34 @@ function bootstrapChecks(): void {
     prodIssues.forEach((issue) => console.error(`  - ${issue}`));
     process.exit(1);
   }
+}
+
+function registerRoutes(app: Express): void {
+  const { configRoutes } = require('./routes/config.routes');
+  const { authRoutes } = require('./routes/auth.routes');
+  const { providerRoutes } = require('./routes/provider.routes');
+  const { bookingRoutes } = require('./routes/booking.routes');
+  const { marketplaceRoutes } = require('./routes/marketplace.routes');
+  const { reviewRoutes } = require('./routes/review.routes');
+  const { paymentRoutes } = require('./routes/payment.routes');
+  const { availabilityRoutes } = require('./routes/availability.routes');
+  const { notificationRoutes } = require('./routes/notification.routes');
+  const { messagingRoutes } = require('./routes/messaging.routes');
+  const { portfolioRoutes } = require('./routes/portfolio.routes');
+  const { adminRoutes } = require('./routes/admin.routes');
+
+  app.use('/api/config', configRoutes);
+  app.use('/api/auth', authRoutes);
+  app.use('/api/providers', providerRoutes);
+  app.use('/api/bookings', bookingRoutes);
+  app.use('/api', marketplaceRoutes);
+  app.use('/api/reviews', reviewRoutes);
+  app.use('/api/payments', paymentRoutes);
+  app.use('/api/availability', availabilityRoutes);
+  app.use('/api/notifications', notificationRoutes);
+  app.use('/api/messages', messagingRoutes);
+  app.use('/api/portfolio', portfolioRoutes);
+  app.use('/api/admin', adminRoutes);
 }
 
 export function createApp(): Express {
@@ -90,18 +107,7 @@ export function createApp(): Express {
     res.json({ success: true, tables: status });
   });
 
-  app.use('/api/config', configRoutes);
-  app.use('/api/auth', authRoutes);
-  app.use('/api/providers', providerRoutes);
-  app.use('/api/bookings', bookingRoutes);
-  app.use('/api', marketplaceRoutes);
-  app.use('/api/reviews', reviewRoutes);
-  app.use('/api/payments', paymentRoutes);
-  app.use('/api/availability', availabilityRoutes);
-  app.use('/api/notifications', notificationRoutes);
-  app.use('/api/messages', messagingRoutes);
-  app.use('/api/portfolio', portfolioRoutes);
-  app.use('/api/admin', adminRoutes);
+  registerRoutes(app);
 
   app.use(errorHandler);
 
@@ -112,8 +118,13 @@ export function createApp(): Express {
   return app;
 }
 
-bootstrapChecks();
+let appInstance: Express | null = null;
 
-/** Singleton for serverless + local server */
-const app = createApp();
-export default app;
+/** Lazy singleton — avoids loading all routes until first API request on Vercel */
+export default function getApp(): Express {
+  if (!appInstance) {
+    bootstrapChecks();
+    appInstance = createApp();
+  }
+  return appInstance;
+}
