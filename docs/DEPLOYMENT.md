@@ -2,11 +2,18 @@
 
 All API traffic goes through environment variables. Nothing in the app should hardcode production URLs except localhost fallbacks for local dev.
 
-## Vercel fullstack (recommended — frontend + serverless API)
+## Vercel — two projects (frontend + backend API) **← you are here**
+
+**Step-by-step guide:** [DEPLOY_VERCEL_TWO_PROJECTS.md](./DEPLOY_VERCEL_TWO_PROJECTS.md)
+
+- Project 1: Root `frontend` (Next.js)  
+- Project 2: Root `backend` (serverless Express at `/api/*`)
+
+## Vercel fullstack (single project)
 
 **Step-by-step guide:** [DEPLOY_VERCEL_FULLSTACK.md](./DEPLOY_VERCEL_FULLSTACK.md)
 
-One project: Next.js in `frontend/`, Express at `/api/*` via serverless function.
+One project: Next.js + Express at `/api/*` on the same domain.
 
 ## Vercel + Render (separate API host)
 
