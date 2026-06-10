@@ -1,17 +1,10 @@
 import { Router } from 'express';
-import express from 'express';
 import { paymentController } from '../controllers/payment.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 export const paymentRoutes = Router();
 
-// Webhooks (no auth — verify signatures inside handlers)
-paymentRoutes.post('/webhooks/onepay', (req, res) => paymentController.onepayWebhook(req, res));
-paymentRoutes.post(
-  '/webhooks/helapay',
-  express.urlencoded({ extended: true }),
-  (req, res) => paymentController.helapayWebhook(req, res)
-);
+// Stripe webhook registered in app.ts (raw body)
 
 paymentRoutes.get('/me', authenticate, (req, res) => paymentController.getUserPayments(req as any, res));
 paymentRoutes.get('/provider', authenticate, (req, res) => paymentController.getProviderPayments(req as any, res));

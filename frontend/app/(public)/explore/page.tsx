@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SectionHeading } from "@/components/layout/section-heading"
 import { Search, SlidersHorizontal, X, Package, Images } from "lucide-react"
 import { getExplorePackages } from "@/services/packages"
 import { getPublicPortfolioAlbums, type PortfolioAlbum } from "@/services/portfolio"
@@ -264,13 +265,15 @@ function ExploreContent() {
     <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
       <main className="flex-1">
-        <div className="border-b border-border bg-card">
-          <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
-            <h1 className="text-3xl font-bold text-foreground">Explore</h1>
-            <p className="mt-2 text-muted-foreground">
-              Discover service packages and browse provider portfolio albums
-            </p>
-            <div className="mt-6 flex items-center gap-3">
+        <div className="border-b border-border py-12 md:py-16">
+          <div className="mx-auto max-w-7xl px-6 lg:px-10">
+            <SectionHeading
+              align="left"
+              label="Discover"
+              title="Explore"
+              description="Browse service packages and portfolio albums from creators across Sri Lanka."
+            />
+            <div className="mt-8 flex items-center gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -308,23 +311,23 @@ function ExploreContent() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+        <div className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="mb-6 w-full justify-start bg-muted sm:w-auto">
-              <TabsTrigger value="packages" className="gap-2">
+            <TabsList className="mb-8 h-auto w-full justify-start rounded-none border-b border-border bg-transparent p-0 sm:w-auto">
+              <TabsTrigger value="packages" className="gap-2 rounded-none border-b-2 border-transparent px-4 pb-3 data-[state=active]:border-foreground data-[state=active]:bg-transparent">
                 <Package className="h-4 w-4" />
-                Service Packages
+                Packages
               </TabsTrigger>
-              <TabsTrigger value="portfolios" className="gap-2">
+              <TabsTrigger value="portfolios" className="gap-2 rounded-none border-b-2 border-transparent px-4 pb-3 data-[state=active]:border-foreground data-[state=active]:bg-transparent">
                 <Images className="h-4 w-4" />
-                Portfolio Albums
+                Portfolios
               </TabsTrigger>
             </TabsList>
 
             <div className="flex gap-8">
               <aside className="hidden w-64 shrink-0 lg:block">
-                <div className="sticky top-20 rounded-xl border border-border bg-card p-5">
-                  <h3 className="mb-4 text-sm font-semibold text-foreground">Filters</h3>
+                <div className="sticky top-20 border border-border bg-card p-5">
+                  <h3 className="missio-label mb-4 text-muted-foreground">Filters</h3>
                   <FilterPanel />
                 </div>
               </aside>
@@ -352,7 +355,7 @@ function ExploreContent() {
                       ))}
                     </div>
                   ) : filteredPackages.length > 0 ? (
-                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {filteredPackages.map((pkg) => (
                         <PackageCard key={pkg.id} pkg={pkg} />
                       ))}
@@ -370,7 +373,7 @@ function ExploreContent() {
                       ))}
                     </div>
                   ) : filteredAlbums.length > 0 ? (
-                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                       {filteredAlbums.map((album) => (
                         <PortfolioAlbumCard key={album.provider_id} album={album} />
                       ))}

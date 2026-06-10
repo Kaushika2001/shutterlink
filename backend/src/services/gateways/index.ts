@@ -1,12 +1,9 @@
-import type { GatewayCheckoutParams, GatewayCheckoutResult, PaymentGatewayId } from './types';
+import type { GatewayCheckoutParams, GatewayCheckoutResult } from './types';
 import { isPaymentSandboxMode } from '../../config/env';
-import { createOnepayCheckoutLink, isOnepayConfigured } from './onepay.gateway';
-import { createPayhereCheckout, isPayhereConfigured } from './payhere.gateway';
+import { createStripeCheckout, isStripeConfigured } from './stripe.gateway';
 
 export function isGatewayConfigured(method: string): boolean {
-  if (method === 'onepay') return isOnepayConfigured();
-  if (method === 'helapay') return isPayhereConfigured();
-  return false;
+  return method === 'stripe' && isStripeConfigured();
 }
 
 export async function initiateGatewayCheckout(
@@ -21,17 +18,12 @@ export async function initiateGatewayCheckout(
     };
   }
 
-  const m = method as PaymentGatewayId;
-  if (m === 'onepay') {
-    const result = await createOnepayCheckoutLink(params);
+  if (method === 'stripe') {
+    const result = await createStripeCheckout(params);
     if (result.mode === 'simulate') return { ...result, sandbox: true };
     return result;
   }
-  if (m === 'helapay') {
-    const result = await createPayhereCheckout(params);
-    if (result.mode === 'simulate') return { ...result, sandbox: true };
-    return result;
-  }
+
   return {
     mode: 'simulate',
     sandbox: true,
@@ -39,4 +31,4 @@ export async function initiateGatewayCheckout(
   };
 }
 
-export { isOnepayConfigured, isPayhereConfigured };
+export { isStripeConfigured };

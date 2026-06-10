@@ -11,7 +11,8 @@ configRoutes.get('/public', (_req, res) => {
       supabase_url: config.SUPABASE_URL || null,
       supabase_anon_key: config.SUPABASE_ANON_KEY || null,
       payment_sandbox_mode: isPaymentSandboxMode(),
-      payhere_sandbox: config.PAYHERE_SANDBOX,
+      stripe_publishable_key: config.STRIPE_PUBLISHABLE_KEY || null,
+      stripe_configured: Boolean(config.STRIPE_SECRET_KEY),
     },
   });
 });

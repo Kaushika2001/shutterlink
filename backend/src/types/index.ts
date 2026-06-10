@@ -2,7 +2,7 @@ export type UserRole = 'customer' | 'provider' | 'admin';
 export type ProviderType = 'photographer' | 'editor' | 'equipment_renter';
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'rejected';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
-export type PaymentMethod = 'onepay' | 'helapay' | 'bank_transfer' | 'card';
+export type PaymentMethod = 'stripe';
 export type ServiceCategory = 'wedding' | 'portrait' | 'event' | 'commercial' | 'real_estate' | 'product' | 'editing' | 'equipment_rental';
 export type LocationType = 'on_site' | 'studio' | 'remote';
 

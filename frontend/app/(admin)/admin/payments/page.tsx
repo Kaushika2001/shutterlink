@@ -67,8 +67,7 @@ export default function AdminPaymentsPage() {
     .reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
 
   const methodLabels: Record<string, string> = {
-    onepay: "OnePay",
-    helapay: "HelaPay",
+    stripe: "Stripe",
     bank_transfer: "Bank Transfer",
     card: "Card",
   }
@@ -145,8 +144,7 @@ export default function AdminPaymentsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Methods</SelectItem>
-                  <SelectItem value="onepay">OnePay</SelectItem>
-                  <SelectItem value="helapay">HelaPay</SelectItem>
+                  <SelectItem value="stripe">Stripe</SelectItem>
                   <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
                   <SelectItem value="card">Card</SelectItem>
                 </SelectContent>

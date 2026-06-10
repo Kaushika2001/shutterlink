@@ -83,23 +83,21 @@ export class MarketplaceService {
 
   // ==================== Payments ====================
   async getUserPayments(userId: string) {
-    const { data, error } = await supabaseAdmin
-      .from('payments')
-      .select('*')
-      .eq('payer_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) throw new ValidationError(error.message);
-    return data || [];
+    const { paymentService } = await import('./payment.service');
+    return paymentService.getUserPayments(userId);
   }
 
   async createPayment(userId: string, payload: any) {
-    const { data, error } = await supabaseAdmin
-      .from('payments')
-      .insert({ ...payload, payer_id: userId, status: payload.status || 'pending' })
-      .select()
-      .single();
-    if (error) throw new ValidationError(error.message);
-    return data;
+    const { paymentService } = await import('./payment.service');
+    return paymentService.createPayment({
+      booking_id: payload.booking_id,
+      payer_id: userId,
+      amount: payload.amount,
+      method: payload.payment_method || payload.method,
+      payment_type: payload.payment_type,
+      status: payload.status,
+      transaction_ref: payload.transaction_id,
+    });
   }
 
   // ==================== Reviews ====================

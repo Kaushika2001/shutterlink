@@ -6,21 +6,172 @@ import { bookingService } from './booking.service';
 import { auditService } from './audit.service';
 import { notificationService } from './notification.service';
 import { initiateGatewayCheckout, isGatewayConfigured } from './gateways';
-import { verifyOnepayTransaction, parseOnepayWebhook } from './gateways/onepay.gateway';
-import { verifyPayhereNotify } from './gateways/payhere.gateway';
+import {
+  constructStripeWebhookEvent,
+  retrieveStripeCheckoutSession,
+} from './gateways/stripe.gateway';
 
 const PLATFORM_FEE_RATE = 0.1;
 
+type PaymentInsertInput = {
+  booking_id: string;
+  customer_id: string;
+  provider_id: string;
+  amount: number;
+  payment_method?: string;
+  platform_fee?: number;
+  provider_amount?: number;
+  status?: string;
+  transaction_id?: string | null;
+  paid_at?: string | null;
+};
+
 export class PaymentService {
+  /** Insert with progressively smaller payloads when optional columns are missing */
+  private async insertPaymentRecord(base: PaymentInsertInput): Promise<any> {
+    const payloads: Record<string, unknown>[] = [
+      {
+        booking_id: base.booking_id,
+        customer_id: base.customer_id,
+        provider_id: base.provider_id,
+        amount: base.amount,
+        platform_fee: base.platform_fee,
+        provider_amount: base.provider_amount,
+        payment_method: base.payment_method,
+        status: base.status || 'pending',
+        transaction_id: base.transaction_id ?? null,
+        paid_at: base.paid_at ?? null,
+      },
+      {
+        booking_id: base.booking_id,
+        customer_id: base.customer_id,
+        provider_id: base.provider_id,
+        amount: base.amount,
+        payment_method: base.payment_method,
+        status: base.status || 'pending',
+      },
+      {
+        booking_id: base.booking_id,
+        customer_id: base.customer_id,
+        provider_id: base.provider_id,
+        amount: base.amount,
+        status: base.status || 'pending',
+      },
+      {
+        booking_id: base.booking_id,
+        amount: base.amount,
+        method: base.payment_method || 'stripe',
+        status: base.status || 'pending',
+      },
+    ];
+
+    let lastError: { message?: string; code?: string } | null = null;
+    for (const payload of payloads) {
+      const cleaned = Object.fromEntries(
+        Object.entries(payload).filter(([, value]) => value !== undefined)
+      );
+      const { data, error } = await supabaseAdmin
+        .from('payments')
+        .insert(cleaned)
+        .select()
+        .single();
+
+      if (!error && data) return data;
+      lastError = error;
+      if (error && !isMissingColumnError(error)) break;
+    }
+
+    if (isMissingTableError(lastError)) {
+      throw new ValidationError(
+        'Payments table is not set up. Run backend/supabase/RUN_PAYMENTS_SETUP.sql in Supabase SQL Editor.'
+      );
+    }
+    throw new ValidationError(lastError?.message || 'Failed to create payment');
+  }
+
+  private async updatePaymentRecord(
+    paymentId: string,
+    modern: Record<string, unknown>,
+    legacy: Record<string, unknown>
+  ): Promise<any> {
+    let lastError: { message?: string; code?: string } | null = null;
+    for (const payload of [modern, legacy]) {
+      const cleaned = Object.fromEntries(
+        Object.entries(payload).filter(([, value]) => value !== undefined)
+      );
+      const { data, error } = await supabaseAdmin
+        .from('payments')
+        .update(cleaned)
+        .eq('id', paymentId)
+        .select()
+        .single();
+
+      if (!error && data) return data;
+      lastError = error;
+      if (error && !isMissingColumnError(error)) break;
+    }
+    throw new ValidationError(lastError?.message || 'Failed to update payment');
+  }
+
+  private async fetchPaymentsViaBookings(
+    userId: string,
+    role: 'customer' | 'provider'
+  ): Promise<any[]> {
+    const column = role === 'customer' ? 'customer_id' : 'provider_id';
+    const { data: bookings, error: bookingError } = await supabaseAdmin
+      .from('bookings')
+      .select('id')
+      .eq(column, userId);
+
+    if (bookingError) {
+      throw new ValidationError(bookingError.message || 'Failed to fetch payments');
+    }
+
+    const bookingIds = (bookings || []).map((b) => b.id);
+    if (bookingIds.length === 0) return [];
+
+    const { data, error } = await supabaseAdmin
+      .from('payments')
+      .select('*')
+      .in('booking_id', bookingIds);
+
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      throw new ValidationError(error.message || 'Failed to fetch payments');
+    }
+
+    return data || [];
+  }
+
+  private async paymentBelongsToCustomer(payment: any, userId: string): Promise<boolean> {
+    if (
+      payment.customer_id === userId ||
+      payment.payer_id === userId ||
+      payment.user_id === userId
+    ) {
+      return true;
+    }
+    if (!payment.booking_id) return false;
+    const booking = await bookingService.getBookingById(payment.booking_id);
+    return booking.customer_id === userId;
+  }
+
   private async fetchPaymentsForUser(userId: string): Promise<any[]> {
     const filters = ['customer_id', 'payer_id', 'user_id'] as const;
 
     for (const column of filters) {
-      const { data, error } = await supabaseAdmin
+      let { data, error } = await supabaseAdmin
         .from('payments')
         .select('*')
         .eq(column, userId)
         .order('created_at', { ascending: false });
+
+      if (error && isMissingColumnError(error)) continue;
+      if (error && error.message?.toLowerCase().includes('created_at')) {
+        const retry = await supabaseAdmin.from('payments').select('*').eq(column, userId);
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (!error) return data || [];
       if (isMissingTableError(error)) return [];
@@ -29,19 +180,7 @@ export class PaymentService {
       }
     }
 
-    const { data: all, error: allError } = await supabaseAdmin
-      .from('payments')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (allError) {
-      if (isMissingTableError(allError)) return [];
-      throw new ValidationError(allError.message || 'Failed to fetch payments');
-    }
-
-    return (all || []).filter(
-      (p: any) => p.customer_id === userId || p.payer_id === userId || p.user_id === userId
-    );
+    return this.fetchPaymentsViaBookings(userId, 'customer');
   }
 
   private async enrichCustomerPayments(payments: any[]) {
@@ -53,7 +192,7 @@ export class PaymentService {
     if (bookingIds.length > 0) {
       const { data, error } = await supabaseAdmin
         .from('bookings')
-        .select('id, booking_number, provider_id')
+        .select('id, booking_number, provider_id, customer_id')
         .in('id', bookingIds);
       if (error) throw new ValidationError(error.message || 'Failed to fetch payments');
       bookings = data || [];
@@ -75,10 +214,11 @@ export class PaymentService {
     return payments.map((p: any) => {
       const booking = bookingMap.get(p.booking_id);
       const profile = booking ? profileMap.get(booking.provider_id) : null;
+      const customerId = p.customer_id || p.payer_id || p.user_id || booking?.customer_id;
       return {
         ...p,
-        customer_id: p.customer_id || p.payer_id || p.user_id,
-        payer_id: p.customer_id || p.payer_id || p.user_id,
+        customer_id: customerId,
+        payer_id: customerId,
         payment_method: p.payment_method || p.method || 'unknown',
         payment_type: p.payment_type || 'deposit',
         transaction_id: p.transaction_id || p.payment_gateway_id || null,
@@ -165,16 +305,7 @@ export class PaymentService {
     }
 
     if (error && (isMissingColumnError(error) || isMissingTableError(error))) {
-      const { data: all, error: allErr } = await supabaseAdmin
-        .from('payments')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (allErr && !isMissingTableError(allErr)) {
-        throw new ValidationError(allErr.message || 'Failed to fetch provider payments');
-      }
-      data = (all || []).filter(
-        (p: any) => p.provider_id === userId || p.provider_id === providerProfile.id
-      );
+      data = await this.fetchPaymentsViaBookings(userId, 'provider');
       error = null;
     }
 
@@ -217,7 +348,7 @@ export class PaymentService {
       return { payment: existing, amount, payment_method: paymentMethod, ...gateway };
     }
 
-    const insertPayload: Record<string, unknown> = {
+    const payment = await this.insertPaymentRecord({
       booking_id: bookingId,
       customer_id: userId,
       provider_id: booking.provider_id,
@@ -226,36 +357,7 @@ export class PaymentService {
       provider_amount: providerAmount,
       payment_method: paymentMethod,
       status: 'pending',
-    };
-
-    let { data: payment, error } = await supabaseAdmin
-      .from('payments')
-      .insert(insertPayload)
-      .select()
-      .single();
-
-    if (error && isMissingColumnError(error)) {
-      const legacyPayload = {
-        booking_id: bookingId,
-        payer_id: userId,
-        provider_id: booking.provider_id,
-        amount,
-        method: paymentMethod,
-        status: 'pending',
-      };
-      const retry = await supabaseAdmin.from('payments').insert(legacyPayload).select().single();
-      payment = retry.data;
-      error = retry.error;
-    }
-
-    if (error || !payment) {
-      if (isMissingTableError(error)) {
-        throw new ValidationError(
-          'Payments table is not set up. Run migration 019_ensure_payments_columns.sql in Supabase SQL Editor.'
-        );
-      }
-      throw new ValidationError(error?.message || 'Failed to initiate payment');
-    }
+    });
 
     await auditService.log({
       userId,
@@ -295,10 +397,15 @@ export class PaymentService {
     });
 
     if (gatewayResult.gatewayTransactionId) {
-      await supabaseAdmin
-        .from('payments')
-        .update({ payment_gateway_id: gatewayResult.gatewayTransactionId })
-        .eq('id', payment.id);
+      try {
+        await this.updatePaymentRecord(
+          payment.id,
+          { payment_gateway_id: gatewayResult.gatewayTransactionId },
+          {}
+        );
+      } catch {
+        /* legacy schema has no payment_gateway_id — return URL carries session_id */
+      }
     }
 
     return {
@@ -310,45 +417,34 @@ export class PaymentService {
     };
   }
 
-  async handleOnepayWebhook(body: Record<string, unknown>) {
-    const parsed = parseOnepayWebhook(body);
-    let success = parsed.success;
+  async handleStripeWebhook(rawBody: Buffer, signature: string | undefined) {
+    const event = constructStripeWebhookEvent(rawBody, signature);
 
-    if (parsed.transactionId) {
-      const verified = await verifyOnepayTransaction(parsed.transactionId);
-      success = success && verified;
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as {
+        id: string;
+        payment_status?: string;
+        payment_intent?: string | { id: string } | null;
+        metadata?: { payment_id?: string };
+      };
+
+      const paymentId = session.metadata?.payment_id;
+      const transactionRef =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id || session.id;
+
+      const payment = await this.findPaymentForWebhook(paymentId || '', session.id);
+      if (!payment) {
+        throw new NotFoundError('Payment not found for Stripe checkout session');
+      }
+
+      if (session.payment_status === 'paid') {
+        return this.finalizePayment(payment.id, 'stripe', transactionRef, 'webhook');
+      }
     }
 
-    const payment = await this.findPaymentForWebhook(parsed.merchantReference, parsed.transactionId);
-    if (!payment) {
-      throw new NotFoundError('Payment not found for OnePay callback');
-    }
-
-    if (success) {
-      return this.finalizePayment(payment.id, 'onepay', parsed.transactionId, 'webhook');
-    }
-
-    await supabaseAdmin.from('payments').update({ status: 'failed' }).eq('id', payment.id);
-    return { payment_id: payment.id, status: 'failed' };
-  }
-
-  async handleHelapayWebhook(body: Record<string, string>) {
-    const verified = verifyPayhereNotify(body);
-    if (!verified.valid) {
-      throw new ValidationError('Invalid PayHere signature');
-    }
-
-    const payment = await this.findPaymentForWebhook(verified.orderId, verified.transactionId);
-    if (!payment) {
-      throw new NotFoundError('Payment not found for HelaPay/PayHere notify');
-    }
-
-    if (verified.success) {
-      return this.finalizePayment(payment.id, 'helapay', verified.transactionId, 'webhook');
-    }
-
-    await supabaseAdmin.from('payments').update({ status: 'failed' }).eq('id', payment.id);
-    return { payment_id: payment.id, status: 'failed' };
+    return { received: true, type: event.type };
   }
 
   async finalizePayment(
@@ -369,22 +465,22 @@ export class PaymentService {
       return payment;
     }
 
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from('payments')
-      .update({
+    const paidAt = new Date().toISOString();
+    const updated = await this.updatePaymentRecord(
+      paymentId,
+      {
         status: 'completed',
         payment_method: paymentMethod,
         transaction_id: transactionRef,
         payment_gateway_id: payment.payment_gateway_id || transactionRef,
-        paid_at: new Date().toISOString(),
-      })
-      .eq('id', paymentId)
-      .select()
-      .single();
-
-    if (updateError || !updated) {
-      throw new ValidationError('Failed to finalize payment');
-    }
+        paid_at: paidAt,
+      },
+      {
+        status: 'completed',
+        method: paymentMethod,
+        payment_date: paidAt,
+      }
+    );
 
     // Mark deposit paid; provider accepts pending booking → confirmed
     await bookingService.updateBooking(payment.booking_id, {
@@ -469,7 +565,7 @@ export class PaymentService {
 
     if (error || !payment) throw new NotFoundError('Payment not found');
 
-    if (payment.customer_id !== userId) {
+    if (!(await this.paymentBelongsToCustomer(payment, userId))) {
       throw new AuthorizationError('Not your payment');
     }
 
@@ -484,37 +580,41 @@ export class PaymentService {
         ? `SBX-${paymentMethod.toUpperCase()}-${Date.now()}`
         : `${paymentMethod.toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`);
 
-    if (
-      !sandbox &&
-      isGatewayConfigured(paymentMethod) &&
-      paymentMethod !== 'card' &&
-      paymentMethod !== 'bank_transfer'
-    ) {
+    if (!sandbox && isGatewayConfigured(paymentMethod)) {
       throw new ValidationError(
-        'Gateway is configured. Complete payment on the OnePay/HelaPay redirect page or wait for the webhook.'
+        'Stripe is configured. Complete payment on Stripe Checkout or wait for the webhook.'
       );
     }
 
     return this.finalizePayment(paymentId, paymentMethod, gatewayRef, 'manual', userId);
   }
 
-  async syncPaymentStatus(paymentId: string, userId: string) {
+  async syncPaymentStatus(paymentId: string, userId: string, stripeSessionId?: string) {
     const { data: payment } = await supabaseAdmin
       .from('payments')
       .select('*')
       .eq('id', paymentId)
       .single();
 
-    if (!payment || payment.customer_id !== userId) {
+    if (!payment || !(await this.paymentBelongsToCustomer(payment, userId))) {
       throw new NotFoundError('Payment not found');
     }
 
     if (payment.status === 'completed') return payment;
 
-    if (payment.payment_method === 'onepay' && payment.payment_gateway_id) {
-      const ok = await verifyOnepayTransaction(payment.payment_gateway_id);
-      if (ok) {
-        return this.finalizePayment(paymentId, 'onepay', payment.payment_gateway_id, 'manual');
+    const gatewaySessionId = payment.payment_gateway_id || stripeSessionId;
+    if (gatewaySessionId) {
+      try {
+        const session = await retrieveStripeCheckoutSession(gatewaySessionId);
+        if (session.payment_status === 'paid') {
+          const transactionRef =
+            typeof session.payment_intent === 'string'
+              ? session.payment_intent
+              : session.payment_intent?.id || session.id;
+          return this.finalizePayment(paymentId, 'stripe', transactionRef, 'manual');
+        }
+      } catch {
+        /* pending */
       }
     }
 
@@ -532,43 +632,23 @@ export class PaymentService {
   }) {
     const booking = await bookingService.getBookingById(data.booking_id);
 
-    const { data: payment, error } = await supabaseAdmin
-      .from('payments')
-      .insert({
-        booking_id: data.booking_id,
-        customer_id: data.payer_id,
-        provider_id: booking.provider_id,
-        amount: data.amount,
-        payment_method: data.method || 'card',
-        status: data.status || 'pending',
-        transaction_id: data.transaction_ref || null,
-        paid_at: data.status === 'completed' ? new Date().toISOString() : null,
-      })
-      .select()
-      .single();
-
-    if (error || !payment) throw new ValidationError('Failed to create payment');
-    return payment;
+    return this.insertPaymentRecord({
+      booking_id: data.booking_id,
+      customer_id: data.payer_id,
+      provider_id: booking.provider_id,
+      amount: data.amount,
+      payment_method: data.method || 'card',
+      status: data.status || 'pending',
+      transaction_id: data.transaction_ref || null,
+      paid_at: data.status === 'completed' ? new Date().toISOString() : null,
+    });
   }
 
   async getPaymentStats(userId: string, isProvider: boolean) {
-    if (isProvider) {
-      const { data, error } = await supabaseAdmin
-        .from('payments')
-        .select('status, amount')
-        .eq('provider_id', userId);
-
-      if (error) throw new ValidationError('Failed to fetch payment stats');
-      return this.aggregateStats(data || []);
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from('payments')
-      .select('status, amount')
-      .eq('customer_id', userId);
-
-    if (error) throw new ValidationError('Failed to fetch payment stats');
-    return this.aggregateStats(data || []);
+    const payments = isProvider
+      ? await this.getProviderPayments(userId)
+      : await this.getUserPayments(userId);
+    return this.aggregateStats(payments);
   }
 
   private aggregateStats(payments: any[]) {

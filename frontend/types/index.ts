@@ -6,7 +6,7 @@ export type BookingStatus = "pending" | "confirmed" | "in_progress" | "completed
 
 export type PaymentStatus = "pending" | "completed" | "failed" | "refunded"
 
-export type PaymentMethod = "onepay" | "helapay" | "bank_transfer" | "card"
+export type PaymentMethod = "stripe"
 
 export type ServiceCategory = "wedding" | "portrait" | "event" | "commercial" | "real_estate" | "product" | "editing" | "equipment_rental"
 

@@ -73,12 +73,11 @@ export const config = {
   CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET || 'shutterlink_portfolio',
   /** Portfolio image storage: "cloudinary" (default) or "supabase" */
   PORTFOLIO_STORAGE: (process.env.PORTFOLIO_STORAGE || 'cloudinary').toLowerCase(),
-  // OnePay — https://developer.onepay.lk
-  ONEPAY_APP_ID: process.env.ONEPAY_APP_ID || '',
-  ONEPAY_APP_TOKEN: process.env.ONEPAY_APP_TOKEN || '',
-  ONEPAY_HASH_SALT: process.env.ONEPAY_HASH_SALT || '',
-  ONEPAY_HASH_TOKEN: process.env.ONEPAY_HASH_TOKEN || '',
-  // PayHere (HelaPay / card IPG) — https://support.payhere.lk
+  // Stripe — https://dashboard.stripe.com (test keys for dev; SL merchants cannot go live)
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY || '',
+  STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET || '',
+  // PayHere (Sri Lanka production) — optional; not used when gateway is stripe
   PAYHERE_MERCHANT_ID: process.env.PAYHERE_MERCHANT_ID || '',
   PAYHERE_MERCHANT_SECRET: process.env.PAYHERE_MERCHANT_SECRET || '',
   PAYHERE_SANDBOX: process.env.PAYHERE_SANDBOX !== 'false',

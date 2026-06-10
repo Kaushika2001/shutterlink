@@ -1,4 +1,4 @@
-export type PaymentGatewayId = 'onepay' | 'helapay' | 'card' | 'bank_transfer';
+export type PaymentGatewayId = 'stripe';
 
 export interface GatewayCheckoutParams {
   paymentId: string;

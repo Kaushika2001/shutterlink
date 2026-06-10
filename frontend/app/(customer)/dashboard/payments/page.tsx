@@ -10,19 +10,12 @@ import { StatusBadge } from "@/components/ui/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { EmptyState } from "@/components/ui/empty-state"
 import { CreditCard, Receipt, Loader2, CheckCircle2, FlaskConical } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 
-const paymentMethods = [
-  { value: "onepay", label: "OnePay", description: "Sri Lanka's leading digital wallet" },
-  { value: "helapay", label: "HelaPay", description: "Fast and secure local payments" },
-  { value: "bank_transfer", label: "Bank Transfer", description: "Direct bank transfer" },
-  { value: "card", label: "Credit/Debit Card", description: "Visa, Mastercard, Amex" },
-]
+const PAYMENT_METHOD = "stripe"
 
 interface PendingBookingItem {
   id: string
@@ -44,7 +37,6 @@ interface PaymentItem {
 
 export default function CustomerPaymentsPage() {
   const { user, ready, isAuthenticated } = useAuthReady()
-  const [selectedMethod, setSelectedMethod] = useState("onepay")
   const [isProcessing, setIsProcessing] = useState(false)
   const [showReceipt, setShowReceipt] = useState<string | null>(null)
   const [payments, setPayments] = useState<PaymentItem[]>([])
@@ -112,25 +104,21 @@ export default function CustomerPaymentsPage() {
   async function handlePayment(bookingId: string, amount: number) {
     setIsProcessing(true)
     try {
-      const checkout = await checkoutPayment(bookingId, selectedMethod)
+      const checkout = await checkoutPayment(bookingId, PAYMENT_METHOD)
 
       if (checkout.mode === "redirect" && checkout.redirect_url && !checkout.sandbox) {
         window.location.href = checkout.redirect_url
         return
       }
 
-      if (
-        !checkout.sandbox &&
-        checkout.gateway_configured &&
-        (selectedMethod === "onepay" || selectedMethod === "helapay")
-      ) {
+      if (!checkout.sandbox && checkout.gateway_configured) {
         toast.error("Complete payment on the gateway page. If you already paid, open Payments again to sync.")
         return
       }
 
       await completePayment(
         checkout.payment.id,
-        selectedMethod,
+        PAYMENT_METHOD,
         checkout.sandbox ? `SBX-${Date.now()}` : undefined
       )
       toast.success(
@@ -179,7 +167,7 @@ export default function CustomerPaymentsPage() {
           <FlaskConical className="h-4 w-4 text-amber-600" />
           <AlertTitle className="text-foreground">Payment sandbox</AlertTitle>
           <AlertDescription className="text-muted-foreground">
-            Test mode is on — no real charges. Use Pay (Sandbox) to simulate OnePay, HelaPay, or card payments.
+            Test mode is on — no real charges. Use Pay (Sandbox) to simulate payments without Stripe.
             Set <code className="text-xs">PAYMENT_SANDBOX_MODE=false</code> in backend .env for live gateways.
           </AlertDescription>
         </Alert>
@@ -206,7 +194,7 @@ export default function CustomerPaymentsPage() {
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                          <DialogTitle className="text-foreground">Choose Payment Method</DialogTitle>
+                          <DialogTitle className="text-foreground">Pay with Stripe</DialogTitle>
                         </DialogHeader>
                         <div className="flex flex-col gap-4 py-4">
                           <div className="rounded-lg bg-muted/50 p-3">
@@ -218,24 +206,10 @@ export default function CustomerPaymentsPage() {
                               <span className="text-muted-foreground">Service</span>
                               <span className="text-foreground">{booking.provider_business}</span>
                             </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                              Secure card payment via Stripe Checkout. Use test card 4242 4242 4242 4242 in sandbox.
+                            </p>
                           </div>
-                          <RadioGroup value={selectedMethod} onValueChange={setSelectedMethod} className="flex flex-col gap-2">
-                            {paymentMethods.map((m) => (
-                              <Label
-                                key={m.value}
-                                htmlFor={`pay-${m.value}`}
-                                className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
-                                  selectedMethod === m.value ? "border-primary bg-primary/5" : "border-border"
-                                }`}
-                              >
-                                <RadioGroupItem value={m.value} id={`pay-${m.value}`} />
-                                <div>
-                                  <p className="text-sm font-medium text-foreground">{m.label}</p>
-                                  <p className="text-xs text-muted-foreground">{m.description}</p>
-                                </div>
-                              </Label>
-                            ))}
-                          </RadioGroup>
                           <Button
                             onClick={() => handlePayment(booking.id, booking.total_amount)}
                             disabled={isProcessing}

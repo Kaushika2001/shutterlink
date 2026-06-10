@@ -58,7 +58,7 @@ export class PaymentController {
         return;
       }
       const { booking_id, payment_method } = req.body;
-      const result = await paymentService.checkout(req.userId, booking_id, payment_method || 'onepay');
+      const result = await paymentService.checkout(req.userId, booking_id, payment_method || 'stripe');
       res.status(201).json({ success: true, data: result });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
@@ -75,7 +75,7 @@ export class PaymentController {
       const payment = await paymentService.completePayment(
         req.userId,
         req.params.paymentId,
-        payment_method || 'onepay',
+        payment_method || 'stripe',
         transaction_ref
       );
       res.status(200).json({ success: true, data: payment, message: 'Payment completed' });
@@ -90,30 +90,27 @@ export class PaymentController {
         res.status(401).json({ success: false, error: 'Unauthorized' });
         return;
       }
-      const payment = await paymentService.syncPaymentStatus(req.params.paymentId, req.userId);
+      const stripeSessionId =
+        typeof req.query.session_id === 'string' ? req.query.session_id : undefined;
+      const payment = await paymentService.syncPaymentStatus(
+        req.params.paymentId,
+        req.userId,
+        stripeSessionId
+      );
       res.status(200).json({ success: true, data: payment });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });
     }
   }
 
-  async onepayWebhook(req: Request, res: Response): Promise<void> {
+  async stripeWebhook(req: Request, res: Response): Promise<void> {
     try {
-      const result = await paymentService.handleOnepayWebhook(req.body as Record<string, unknown>);
-      res.status(200).json({ success: true, data: result });
+      const signature = req.headers['stripe-signature'] as string | undefined;
+      const result = await paymentService.handleStripeWebhook(req.body as Buffer, signature);
+      res.status(200).json({ success: true, received: true, data: result });
     } catch (error: any) {
-      console.error('OnePay webhook error:', error.message);
-      res.status(error.statusCode || 500).json({ success: false, error: error.message });
-    }
-  }
-
-  async helapayWebhook(req: Request, res: Response): Promise<void> {
-    try {
-      const result = await paymentService.handleHelapayWebhook(req.body as Record<string, string>);
-      res.status(200).json({ success: true, data: result });
-    } catch (error: any) {
-      console.error('HelaPay webhook error:', error.message);
-      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+      console.error('Stripe webhook error:', error.message);
+      res.status(400).json({ success: false, error: error.message });
     }
   }
 

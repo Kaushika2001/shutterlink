@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useAuth } from "@/context/auth-context"
+import { Logo } from "@/components/layout/logo"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,75 +11,88 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Camera, Menu, Moon, Sun, User, LogOut, LayoutDashboard, X } from "lucide-react"
-import { useTheme } from "next-themes"
+import { Menu, User, LogOut, LayoutDashboard, X } from "lucide-react"
 import { useState } from "react"
+import { cn } from "@/lib/utils"
 import type { UserRole } from "@/types"
 
 const roleLinks: Record<UserRole, { href: string; label: string }> = {
   customer: { href: "/dashboard", label: "Dashboard" },
-  provider: { href: "/provider", label: "Provider Panel" },
-  admin: { href: "/admin", label: "Admin Panel" },
+  provider: { href: "/provider", label: "Studio" },
+  admin: { href: "/admin", label: "Admin" },
 }
 
-export function Navbar() {
+const navLinks = [
+  { href: "/explore", label: "Portfolio" },
+  { href: "/explore", label: "Services" },
+  { href: "/register", label: "For Creators" },
+]
+
+interface NavbarProps {
+  variant?: "default" | "overlay"
+}
+
+export function Navbar({ variant = "default" }: NavbarProps) {
   const { user, isAuthenticated, logout } = useAuth()
-  const { theme, setTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const overlay = variant === "overlay"
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
     await logout()
-    // Note: logout() redirects, so this won't be reached
   }
 
+  const linkClass = cn(
+    "missio-nav-link px-3 py-2",
+    overlay
+      ? "text-white/80 hover:text-white"
+      : "text-muted-foreground hover:text-foreground"
+  )
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-card/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-            <Camera className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-bold text-foreground">ShutterLink</span>
-        </Link>
+    <header
+      className={cn(
+        "z-50 w-full transition-colors",
+        overlay
+          ? "absolute inset-x-0 top-0 border-b border-white/10 bg-black/20 backdrop-blur-sm"
+          : "sticky top-0 border-b border-border bg-background/95 backdrop-blur-sm"
+      )}
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 lg:px-10">
+        <Logo light={overlay} size="sm" />
 
         <nav className="hidden items-center gap-1 md:flex">
-          <Link href="/explore" className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-            Explore
-          </Link>
+          {navLinks.map((link) => (
+            <Link key={link.label} href={link.href} className={linkClass}>
+              {link.label}
+            </Link>
+          ))}
           {isAuthenticated && user && (
-            <Link href={roleLinks[user.role].href} className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <Link href={roleLinks[user.role].href} className={linkClass}>
               {roleLinks[user.role].label}
             </Link>
           )}
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-9 w-9"
-            aria-label="Toggle theme"
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          </Button>
-
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="hidden h-9 gap-2 px-3 md:flex">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-medium text-foreground">{user.name}</span>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "hidden h-8 gap-2 px-2 md:flex",
+                    overlay && "text-white hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <User className="h-4 w-4" />
+                  <span className="text-sm">{user.name}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-52">
                 <div className="px-3 py-2">
-                  <p className="text-sm font-medium text-foreground">{user.name}</p>
+                  <p className="text-sm font-medium">{user.name}</p>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
@@ -89,63 +103,94 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut} className="flex items-center gap-2 text-destructive focus:text-destructive">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="text-destructive focus:text-destructive"
+                >
                   <LogOut className="h-4 w-4" />
-                  {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+                  {isLoggingOut ? "Signing out…" : "Sign out"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="hidden items-center gap-2 md:flex">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Sign In</Link>
-              </Button>
-              <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-                <Link href="/register">Get Started</Link>
+            <div className="hidden items-center gap-3 md:flex">
+              <Link
+                href="/login"
+                className={cn(
+                  "missio-nav-link",
+                  overlay ? "text-white/80 hover:text-white" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Sign in
+              </Link>
+              <Button variant={overlay ? "elegant" : "default"} size="sm" className={overlay ? "border-white text-white hover:bg-white hover:text-black" : ""} asChild>
+                <Link href="/register">Get started</Link>
               </Button>
             </div>
           )}
 
-          <Button variant="ghost" size="icon" className="h-9 w-9 md:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-8 w-8 md:hidden", overlay && "text-white hover:bg-white/10")}
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
+          >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-border bg-card p-4 md:hidden">
-          <nav className="flex flex-col gap-1">
-            <Link
-              href="/explore"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              Explore
-            </Link>
+        <div
+          className={cn(
+            "border-t px-6 py-4 md:hidden",
+            overlay ? "border-white/10 bg-black/80" : "border-border bg-background"
+          )}
+        >
+          <nav className="flex flex-col gap-2">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn("missio-nav-link py-2", overlay ? "text-white/80" : "text-muted-foreground")}
+              >
+                {link.label}
+              </Link>
+            ))}
             {isAuthenticated && user ? (
               <>
                 <Link
                   href={roleLinks[user.role].href}
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className={cn("missio-nav-link py-2", overlay ? "text-white/80" : "text-muted-foreground")}
                 >
                   {roleLinks[user.role].label}
                 </Link>
                 <button
-                  onClick={() => { handleLogout(); setMobileOpen(false) }}
+                  onClick={() => {
+                    handleLogout()
+                    setMobileOpen(false)
+                  }}
                   disabled={isLoggingOut}
-                  className="rounded-lg px-3 py-2.5 text-left text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  className="py-2 text-left text-sm text-destructive disabled:opacity-50"
                 >
-                  {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+                  {isLoggingOut ? "Signing out…" : "Sign out"}
                 </button>
               </>
             ) : (
-              <div className="flex flex-col gap-2 pt-2">
-                <Button variant="outline" asChild>
-                  <Link href="/login" onClick={() => setMobileOpen(false)}>Sign In</Link>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" className="flex-1" asChild>
+                  <Link href="/login" onClick={() => setMobileOpen(false)}>
+                    Sign in
+                  </Link>
                 </Button>
-                <Button className="bg-primary text-primary-foreground" asChild>
-                  <Link href="/register" onClick={() => setMobileOpen(false)}>Get Started</Link>
+                <Button size="sm" className="flex-1" asChild>
+                  <Link href="/register" onClick={() => setMobileOpen(false)}>
+                    Get started
+                  </Link>
                 </Button>
               </div>
             )}

@@ -13,6 +13,7 @@ function ReturnContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const paymentId = searchParams.get("payment_id")
+  const stripeSessionId = searchParams.get("session_id")
   const gateway = searchParams.get("gateway")
   const status = searchParams.get("status")
   const [state, setState] = useState<"loading" | "success" | "failed" | "pending">("loading")
@@ -31,7 +32,7 @@ function ReturnContent() {
 
     async function sync() {
       try {
-        const payment = await syncPaymentStatus(paymentId!)
+        const payment = await syncPaymentStatus(paymentId!, stripeSessionId)
         if (payment.status === "completed") {
           setState("success")
           toast.success("Payment confirmed! Your booking is active.")
@@ -44,7 +45,7 @@ function ReturnContent() {
     }
 
     sync()
-  }, [paymentId, status])
+  }, [paymentId, stripeSessionId, status])
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center py-16 text-center">
@@ -68,7 +69,7 @@ function ReturnContent() {
           <p className="mt-2 text-muted-foreground">
             We are waiting for confirmation from the payment gateway. Refresh in a moment or check Payments.
           </p>
-          <Button className="mt-4" variant="outline" onClick={() => paymentId && syncPaymentStatus(paymentId).then(() => router.refresh())}>
+          <Button className="mt-4" variant="outline" onClick={() => paymentId && syncPaymentStatus(paymentId, stripeSessionId).then(() => router.refresh())}>
             Check again
           </Button>
         </>

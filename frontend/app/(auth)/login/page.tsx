@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Camera, Eye, EyeOff, Loader2 } from "lucide-react"
+import { Logo } from "@/components/layout/logo"
+import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 const demoAccounts = [
@@ -58,16 +59,13 @@ function LoginForm() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
-      <Link href="/" className="mb-8 flex items-center gap-2.5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
-          <Camera className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <span className="text-xl font-bold text-foreground">ShutterLink</span>
-      </Link>
+      <div className="mb-8">
+        <Logo />
+      </div>
 
-      <Card className="w-full max-w-md border-border bg-card shadow-lg">
+      <Card className="w-full max-w-md rounded-none border-foreground/15">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-card-foreground">Welcome back</CardTitle>
+          <CardTitle className="font-serif text-2xl font-normal">Welcome back</CardTitle>
           <CardDescription className="text-muted-foreground">Sign in to your ShutterLink account</CardDescription>
         </CardHeader>
         <CardContent>
@@ -111,7 +109,7 @@ function LoginForm() {
                 </button>
               </div>
             </div>
-            <Button type="submit" disabled={isSubmitting} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Sign In
             </Button>

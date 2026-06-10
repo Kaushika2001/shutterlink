@@ -109,8 +109,15 @@ export const checkoutPayment = async (
     true
   );
 
-export const syncPaymentStatus = async (paymentId: string): Promise<Payment> =>
-  apiRequest<Payment>(`/payments/${paymentId}/status`, {}, true);
+export const syncPaymentStatus = async (
+  paymentId: string,
+  stripeSessionId?: string | null
+): Promise<Payment> => {
+  const query = stripeSessionId
+    ? `?session_id=${encodeURIComponent(stripeSessionId)}`
+    : '';
+  return apiRequest<Payment>(`/payments/${paymentId}/status${query}`, {}, true);
+};
 
 export const completePayment = async (
   paymentId: string,

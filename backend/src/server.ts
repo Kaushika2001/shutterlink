@@ -2,7 +2,7 @@ import config from './config/env';
 import getApp from './app';
 import { isCloudinaryConfigured, isPaymentSandboxMode } from './config/env';
 import { isServiceRoleConfigured } from './config/supabase';
-import { isOnepayConfigured, isPayhereConfigured } from './services/gateways';
+import { isStripeConfigured } from './services/gateways';
 
 const PORT = config.PORT;
 const app = getApp();
@@ -25,8 +25,7 @@ app.listen(PORT, config.HOST, () => {
   } else {
     console.log(`✓ Portfolio storage: Supabase bucket "${config.SUPABASE_BUCKET}"`);
   }
-  console.log(isOnepayConfigured() ? '✓ OnePay configured' : '○ OnePay: simulate mode');
-  console.log(isPayhereConfigured() ? '✓ PayHere configured' : '○ PayHere: simulate mode');
+  console.log(isStripeConfigured() ? '✓ Stripe configured' : '○ Stripe: simulate mode');
   console.log(
     isPaymentSandboxMode()
       ? '✓ Payments: SANDBOX mode'

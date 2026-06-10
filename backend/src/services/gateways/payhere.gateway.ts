@@ -1,10 +1,10 @@
 /**
- * HelaPay (SRS) is commonly completed via PayHere IPG in Sri Lanka.
- * This adapter implements PayHere checkout + notify webhook for the `helapay` payment method.
+ * PayHere IPG — card & local payments for Sri Lanka (LKR).
  * @see https://support.payhere.lk/api-&-notification-&-plugins/payhere-checkout
  */
 import crypto from 'crypto';
 import config from '../../config/env';
+import type { GatewayCheckoutParams, GatewayCheckoutResult } from './types';
 
 export function isPayhereConfigured(): boolean {
   return Boolean(config.PAYHERE_MERCHANT_ID && config.PAYHERE_MERCHANT_SECRET);
@@ -15,7 +15,7 @@ function md5(text: string): string {
 }
 
 export function buildPayhereCheckoutFields(
-  params: import('./types').GatewayCheckoutParams
+  params: GatewayCheckoutParams
 ): Record<string, string> {
   const currency = params.currency || 'LKR';
   const amount = Number(params.amount).toFixed(2);
@@ -34,9 +34,9 @@ export function buildPayhereCheckoutFields(
   return {
     action: base,
     merchant_id: merchantId,
-    return_url: `${config.PAYMENT_RETURN_URL}?gateway=helapay&payment_id=${params.paymentId}&status=return`,
-    cancel_url: `${config.PAYMENT_RETURN_URL}?gateway=helapay&payment_id=${params.paymentId}&status=cancel`,
-    notify_url: `${config.PAYMENT_WEBHOOK_BASE_URL}/api/payments/webhooks/helapay`,
+    return_url: `${config.PAYMENT_RETURN_URL}?gateway=payhere&payment_id=${params.paymentId}&status=return`,
+    cancel_url: `${config.PAYMENT_RETURN_URL}?gateway=payhere&payment_id=${params.paymentId}&status=cancel`,
+    notify_url: `${config.PAYMENT_WEBHOOK_BASE_URL}/api/payments/webhooks/payhere`,
     order_id: orderId,
     items: `ShutterLink Booking ${params.bookingId}`,
     currency,
@@ -49,13 +49,11 @@ export function buildPayhereCheckoutFields(
   };
 }
 
-export function createPayhereCheckout(
-  params: import('./types').GatewayCheckoutParams
-): import('./types').GatewayCheckoutResult {
+export function createPayhereCheckout(params: GatewayCheckoutParams): GatewayCheckoutResult {
   if (!isPayhereConfigured()) {
     return {
       mode: 'simulate',
-      message: 'PayHere (HelaPay) credentials not configured — use complete endpoint in development',
+      message: 'PayHere credentials not configured — use Pay (Sandbox) in development',
     };
   }
 

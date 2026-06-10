@@ -1,64 +1,47 @@
-# ShutterLink Payment Gateways
+# ShutterLink Payments — Stripe (test) + PayHere (production SL)
 
-## Overview
+| Environment | Gateway | Notes |
+|-------------|---------|--------|
+| **Development** | Stripe test keys | Card `4242 4242 4242 4242` |
+| **Production (Sri Lanka)** | PayHere | Stripe does not onboard SL merchants for live payouts |
 
-| SRS method | Integration | Webhook |
-|------------|-------------|---------|
-| **OnePay** | [OnePay API v3](https://developer.onepay.lk/payment-api.html) checkout link | `POST /api/payments/webhooks/onepay` |
-| **HelaPay** | PayHere IPG (standard Sri Lanka checkout used with HelaPay) | `POST /api/payments/webhooks/helapay` |
-| **Card / Bank** | Manual complete (development / fallback) | — |
+## Stripe setup (your sandbox keys)
 
-## Environment variables
-
-Add to `backend/.env`:
+In `backend/.env`:
 
 ```env
-ONEPAY_APP_ID=your_app_id
-ONEPAY_APP_TOKEN=your_app_token
-ONEPAY_HASH_SALT=your_hash_salt
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...   # from Stripe CLI (optional for return-page sync)
 
-PAYHERE_MERCHANT_ID=your_merchant_id
-PAYHERE_MERCHANT_SECRET=your_secret
-PAYHERE_SANDBOX=true
-
-PAYMENT_WEBHOOK_BASE_URL=https://your-api.example.com
-PAYMENT_RETURN_URL=https://your-app.example.com/dashboard/payments/return
+PAYMENT_SANDBOX_MODE=false
+PAYMENT_RETURN_URL=http://localhost:3000/dashboard/payments/return
 ```
 
-### Local development with webhooks
+Restart backend — log should show `✓ Stripe configured`.
 
-Use [ngrok](https://ngrok.com) or similar:
+### Local webhook (optional)
 
 ```bash
-ngrok http 5000
+stripe listen --forward-to localhost:5000/api/payments/webhooks/stripe
 ```
 
-Set `PAYMENT_WEBHOOK_BASE_URL=https://xxxx.ngrok-free.app` and register:
+Copy the `whsec_...` secret into `STRIPE_WEBHOOK_SECRET`.
 
-- OnePay callback: `https://xxxx.ngrok-free.app/api/payments/webhooks/onepay`
-- PayHere notify: `https://xxxx.ngrok-free.app/api/payments/webhooks/helapay`
+Without webhook, the **return page** still syncs payment via `GET /api/payments/:id/status`.
+
+### Test card
+
+- Number: `4242 4242 4242 4242`
+- Expiry: any future date
+- CVC: any 3 digits
 
 ## Flow
 
-1. Customer clicks **Pay Now** → `POST /api/payments/checkout`
-2. Backend creates pending payment and returns `redirect_url` (if gateway configured)
-3. Customer pays on OnePay / PayHere
-4. Gateway calls webhook → booking set to **confirmed**, `deposit_paid=true`
-5. Customer lands on `/dashboard/payments/return` → `GET /api/payments/:id/status` syncs OnePay status
+1. **Pay Now** → Stripe Checkout
+2. Pay with test card
+3. Return to `/dashboard/payments/return` → booking deposit marked paid
 
-## OnePay callback payload (example)
+## Security
 
-```json
-{
-  "transaction_id": "WQBV118E584C83CBA50C6",
-  "status": 1,
-  "status_message": "SUCCESS",
-  "additional_data": "<payment-uuid>"
-}
-```
-
-Server verifies via `POST https://api.onepay.lk/v3/transaction/status/` before confirming.
-
-## Without gateway credentials
-
-Checkout returns `mode: "simulate"`. Use **Pay Now** to call `POST /api/payments/:id/complete` (development only).
+Never commit `.env` or paste secret keys in chat. Rotate keys in [Stripe Dashboard](https://dashboard.stripe.com/apikeys) if exposed.

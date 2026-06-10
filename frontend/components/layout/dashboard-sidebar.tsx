@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Camera, X } from "lucide-react"
+import { Logo } from "@/components/layout/logo"
+import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface SidebarLink {
@@ -33,12 +34,7 @@ export function DashboardSidebar({ links, open, onClose }: DashboardSidebarProps
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Camera className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-base font-bold text-foreground">ShutterLink</span>
-          </Link>
+          <Logo size="sm" />
           <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden" onClick={onClose} aria-label="Close sidebar">
             <X className="h-4 w-4" />
           </Button>
