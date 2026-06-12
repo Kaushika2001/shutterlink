@@ -105,6 +105,7 @@ export interface Booking {
   total_price: number;
   deposit_amount: number;
   deposit_paid: boolean;
+  balance_paid?: boolean;
   cancellation_reason?: string;
   cancelled_by?: string;
   cancelled_at?: string;

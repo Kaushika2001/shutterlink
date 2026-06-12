@@ -129,6 +129,17 @@ export class AuthService {
     return user as User;
   }
 
+  /** Issue a fresh JWT using the user's current DB role (fixes stale tokens after role changes). */
+  async refreshSession(userId: string): Promise<Pick<AuthResponse, 'user' | 'token'>> {
+    const user = await this.getCurrentUser(userId);
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+    return { user, token };
+  }
+
   async getUserById(userId: string): Promise<User> {
     const { data: user, error } = await supabaseAdmin
       .from('users')

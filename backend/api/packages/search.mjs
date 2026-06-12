@@ -16,6 +16,7 @@ export default async function handler(req, res) {
       .from('service_packages')
       .select('*, provider:provider_profiles!inner(*)')
       .eq('is_active', true)
+      .eq('provider.is_verified', true)
       .order('price');
 
     if (error) {

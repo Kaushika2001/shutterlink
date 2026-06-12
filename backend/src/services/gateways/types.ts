@@ -1,10 +1,13 @@
 export type PaymentGatewayId = 'stripe';
 
+export type CheckoutPaymentType = 'deposit' | 'balance';
+
 export interface GatewayCheckoutParams {
   paymentId: string;
   bookingId: string;
   amount: number;
   currency: string;
+  paymentType?: CheckoutPaymentType;
   customerEmail?: string;
   customerPhone?: string;
   customerFirstName?: string;

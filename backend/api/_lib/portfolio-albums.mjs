@@ -20,9 +20,13 @@ export async function getPublicPortfolioAlbums() {
     .select(
       'id, user_id, business_name, service_type, average_rating, is_verified, coverage_areas, bio, availability_status'
     )
-    .in('id', providerIds);
+    .in('id', providerIds)
+    .eq('is_verified', true);
 
   if (profileError) throw new Error(profileError.message);
+
+  const verifiedProfileIds = new Set((profiles || []).map((p) => p.id));
+  const verifiedItems = (items || []).filter((item) => verifiedProfileIds.has(item.provider_id));
 
   const { data: packages, error: packageError } = await supabase
     .from('service_packages')
@@ -41,7 +45,7 @@ export async function getPublicPortfolioAlbums() {
   }
 
   const itemsByProvider = new Map();
-  for (const item of items || []) {
+  for (const item of verifiedItems) {
     const list = itemsByProvider.get(item.provider_id) || [];
     list.push(item);
     itemsByProvider.set(item.provider_id, list);

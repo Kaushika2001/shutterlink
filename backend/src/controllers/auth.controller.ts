@@ -76,6 +76,28 @@ export class AuthController {
     }
   }
 
+  async refreshSession(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      const result = await authService.refreshSession(req.userId);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Session refreshed',
+      });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({
+        success: false,
+        error: error.message,
+      });
+    }
+  }
+
   async getUserById(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;

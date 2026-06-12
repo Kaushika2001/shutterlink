@@ -77,7 +77,7 @@ export class PortfolioService {
 
     await supabaseAdmin
       .from('provider_profiles')
-      .update({ is_verified: true, availability_status: 'available' })
+      .update({ availability_status: 'available' })
       .eq('id', data.provider_id);
 
     return item;

@@ -74,6 +74,17 @@ export const getCurrentUser = async () => {
   }
 };
 
+/** Sync JWT role with database (required after admin promotion or role change). */
+export const refreshSession = async () => {
+  const data = await apiRequest<{ user: any; token: string }>(
+    '/auth/refresh-session',
+    { method: 'POST' },
+    true
+  );
+  tokenStorage.set(data.token);
+  return data.user;
+};
+
 /* =========================
    GET CURRENT USER ROLE
 ========================= */

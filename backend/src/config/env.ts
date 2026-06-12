@@ -62,9 +62,9 @@ export const config = {
   JWT_EXPIRY: '24h',
   CORS_ORIGIN: primaryFrontendUrl,
   CORS_ORIGINS: corsOrigins,
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_URL: (process.env.SUPABASE_URL || '').trim(),
+  SUPABASE_ANON_KEY: (process.env.SUPABASE_ANON_KEY || '').trim(),
+  SUPABASE_SERVICE_ROLE_KEY: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim(),
   SUPABASE_BUCKET: 'portfolio-images',
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',

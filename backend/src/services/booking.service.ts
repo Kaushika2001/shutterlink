@@ -49,13 +49,11 @@ export class BookingService {
       throw new ValidationError('Provider not found');
     }
 
-    const providerUserId = providerProfile.user_id;
+    if (!providerProfile.is_verified) {
+      throw new ValidationError('This provider is not verified yet and cannot accept bookings');
+    }
 
-    // Providers with published listings are bookable (sync flag for Explore badges)
-    await supabaseAdmin
-      .from('provider_profiles')
-      .update({ is_verified: true, availability_status: 'available' })
-      .eq('id', providerProfile.id);
+    const providerUserId = providerProfile.user_id;
 
     const totalPrice = pkg.price * payload.duration_hours;
     const depositAmount = Math.round(totalPrice * 0.5 * 100) / 100; // 50% deposit
@@ -98,10 +96,16 @@ export class BookingService {
 
     if (error || !booking) {
       console.error('Failed to create booking:', JSON.stringify({ message: error?.message, details: error?.details, code: error?.code, hint: error?.hint }));
-      if (error?.code === '42501' || !isServiceRoleConfigured()) {
+      if (!isServiceRoleConfigured()) {
         throw new ValidationError(
-          'Booking could not be saved: backend needs SUPABASE_SERVICE_ROLE_KEY in backend/.env. ' +
-            'Restart the API after adding it (Supabase → Settings → API → service_role).'
+          'Booking could not be saved: add SUPABASE_SERVICE_ROLE_KEY to backend/.env ' +
+            '(Supabase → Settings → API → service_role), then restart the API.'
+        );
+      }
+      if (error?.code === '42501') {
+        throw new ValidationError(
+          'Booking blocked by database security (RLS). Restart the backend after saving backend/.env, ' +
+            'and run backend/supabase/RUN_BOOKINGS_RLS_SETUP.sql in the Supabase SQL Editor.'
         );
       }
       throw new ValidationError(error?.message || 'Failed to create booking');
@@ -387,7 +391,28 @@ export class BookingService {
       throw new ValidationError('Only confirmed bookings can be marked complete');
     }
 
-    return this.updateBooking(bookingId, { status: 'completed' as BookingStatus });
+    const updated = await this.updateBooking(bookingId, { status: 'completed' as BookingStatus });
+
+    try {
+      const balance =
+        Math.max(
+          0,
+          Math.round((Number(booking.total_price) - Number(booking.deposit_amount || 0)) * 100) / 100
+        );
+      if (booking.deposit_paid && balance > 0 && !booking.balance_paid) {
+        await notificationService.createNotification({
+          user_id: booking.customer_id,
+          type: 'payment_due',
+          title: 'Balance payment due',
+          message: `Your shoot is complete. Pay the remaining LKR ${balance.toLocaleString()} online or at the shoot location from Payments.`,
+          data: { booking_id: booking.id, amount: balance, payment_type: 'balance' },
+        });
+      }
+    } catch {
+      /* optional */
+    }
+
+    return updated;
   }
 
   async cancelBooking(bookingId: string, reason: string, cancelledBy: string): Promise<Booking> {

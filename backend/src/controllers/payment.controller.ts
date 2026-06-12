@@ -51,14 +51,49 @@ export class PaymentController {
     }
   }
 
+  async scheduleInPersonBalance(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const { booking_id } = req.body;
+      const result = await paymentService.scheduleInPersonBalance(req.userId, booking_id);
+      res.status(201).json({ success: true, data: result });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
+  async confirmInPersonBalance(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      if (!req.userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+      const { booking_id } = req.body;
+      const payment = await paymentService.confirmInPersonBalance(req.userId, booking_id);
+      res.status(200).json({ success: true, data: payment, message: 'Balance payment confirmed' });
+    } catch (error: any) {
+      res.status(error.statusCode || 500).json({ success: false, error: error.message });
+    }
+  }
+
   async checkout(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.userId) {
         res.status(401).json({ success: false, error: 'Unauthorized' });
         return;
       }
-      const { booking_id, payment_method } = req.body;
-      const result = await paymentService.checkout(req.userId, booking_id, payment_method || 'stripe');
+      const { booking_id, payment_method, payment_type } = req.body;
+      const type =
+        payment_type === 'balance' || payment_type === 'full_payment' ? 'balance' : 'deposit';
+      const result = await paymentService.checkout(
+        req.userId,
+        booking_id,
+        payment_method || 'stripe',
+        type
+      );
       res.status(201).json({ success: true, data: result });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });

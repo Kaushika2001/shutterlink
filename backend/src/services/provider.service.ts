@@ -82,7 +82,7 @@ export class ProviderService {
     const insertRow = {
       ...row,
       user_id: userId,
-      is_verified: true,
+      is_verified: false,
       total_bookings: 0,
       average_rating: 0,
       response_time_hours:
@@ -181,7 +181,6 @@ export class ProviderService {
           ...payload,
           user_id: userId,
           availability_status: 'available',
-          is_verified: true,
           total_bookings: existingProvider.total_bookings,
           average_rating: existingProvider.average_rating,
           response_time_hours: existingProvider.response_time_hours,
@@ -205,7 +204,7 @@ export class ProviderService {
             ...payload,
             user_id: userId,
             availability_status: 'available',
-            is_verified: true,
+            is_verified: false,
             total_bookings: 0,
             average_rating: 0,
             response_time_hours: 24,

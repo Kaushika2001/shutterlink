@@ -19,18 +19,22 @@ export class MarketplaceService {
       .from('service_packages')
       .select('*, provider:provider_profiles!inner(*)')
       .eq('is_active', true)
+      .eq('provider.is_verified', true)
       .order('price');
     if (error) throw new ValidationError(error.message);
     return data || [];
   }
 
-  async getPackageById(packageId: string) {
+  async getPackageById(packageId: string, options?: { publicOnly?: boolean }) {
     const { data, error } = await supabaseAdmin
       .from('service_packages')
       .select('*, provider:provider_profiles(*)')
       .eq('id', packageId)
       .single();
     if (error || !data) throw new NotFoundError('Package not found');
+    if (options?.publicOnly && !data.provider?.is_verified) {
+      throw new NotFoundError('Package not found');
+    }
     return data;
   }
 
@@ -343,6 +347,7 @@ export class MarketplaceService {
         `*, user:users(id,name,email), portfolio_items(*), service_packages(*)`
       )
       .eq('id', providerId)
+      .eq('is_verified', true)
       .single();
     if (error || !data) throw new NotFoundError('Provider not found');
     const packages = (data.service_packages || []).filter((p: any) => p.is_active !== false);
@@ -350,18 +355,25 @@ export class MarketplaceService {
   }
 
   async getPublicPortfolios() {
+    const { data: verifiedProfiles, error: profileError } = await supabaseAdmin
+      .from('provider_profiles')
+      .select('id, user_id, business_name, service_type')
+      .eq('is_verified', true);
+    if (profileError) throw new ValidationError(profileError.message);
+
+    const verifiedIds = (verifiedProfiles || []).map((p) => p.id);
+    if (verifiedIds.length === 0) {
+      return { items: [], profiles: [] };
+    }
+
     const { data: items, error: itemError } = await supabaseAdmin
       .from('portfolio_items')
       .select('*')
+      .in('provider_id', verifiedIds)
       .order('created_at', { ascending: false });
     if (itemError) throw new ValidationError(itemError.message);
 
-    const { data: profiles, error: profileError } = await supabaseAdmin
-      .from('provider_profiles')
-      .select('id, user_id, business_name, service_type');
-    if (profileError) throw new ValidationError(profileError.message);
-
-    return { items: items || [], profiles: profiles || [] };
+    return { items: items || [], profiles: verifiedProfiles || [] };
   }
 
   async getPublicPortfolioAlbums() {
@@ -381,10 +393,12 @@ export class MarketplaceService {
       .select(
         'id, user_id, business_name, service_type, average_rating, is_verified, coverage_areas, bio, availability_status'
       )
-      .in('id', providerIds);
+      .in('id', providerIds)
+      .eq('is_verified', true);
     if (profileError) throw new ValidationError(profileError.message);
 
-    const verifiedItems = items || [];
+    const verifiedProfileIds = new Set((profiles || []).map((p) => p.id));
+    const verifiedItems = (items || []).filter((item) => verifiedProfileIds.has(item.provider_id));
 
     const { data: packages, error: packageError } = await supabaseAdmin
       .from('service_packages')
@@ -437,10 +451,14 @@ export class MarketplaceService {
     return { albums, total: albums.length };
   }
 
+  /**
+   * Provider self-service listing prep only (availability flag).
+   * Admin verifies the provider account once; packages and portfolios need no separate approval.
+   */
   private async markProviderListed(providerProfileId: string) {
     await supabaseAdmin
       .from('provider_profiles')
-      .update({ is_verified: true, availability_status: 'available' })
+      .update({ availability_status: 'available' })
       .eq('id', providerProfileId);
   }
 }

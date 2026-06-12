@@ -228,7 +228,9 @@ export default function ProviderPackagesPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Service Packages</h1>
-          <p className="text-muted-foreground">Create and manage your service offerings</p>
+          <p className="text-muted-foreground">
+            Create and manage packages anytime. Only your provider account needs admin approval — not each package.
+          </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -353,7 +355,7 @@ export default function ProviderPackagesPage() {
                   checked={watch("is_active")}
                   onCheckedChange={(checked) => setValue("is_active", checked)}
                 />
-                <Label htmlFor="is_active">Active (visible to customers)</Label>
+                <Label htmlFor="is_active">Active (shown in Explore when your provider account is verified)</Label>
               </div>
 
               {/* Actions */}

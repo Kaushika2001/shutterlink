@@ -13,6 +13,7 @@ import { Loader2, Save, User, Briefcase, DollarSign, MapPin, Award, Clock, Star,
 import { toast } from "sonner"
 import { getProviderProfile, updateProviderProfile, type ProviderProfile } from "@/services/provider"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const SERVICE_TYPES = [
   { value: "photographer", label: "Photographer" },
@@ -176,7 +177,7 @@ export default function ProviderProfilePage() {
       {!profile && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="p-4 text-sm text-muted-foreground">
-            Complete your profile below and click <strong>Save Profile</strong> to appear on Explore and accept bookings.
+            Complete your profile below and click <strong>Save Profile</strong>. Then add packages and portfolio — only your <strong>provider account</strong> needs admin approval before you appear in Explore.
           </CardContent>
         </Card>
       )}
@@ -199,6 +200,16 @@ export default function ProviderProfilePage() {
           )}
         </Button>
       </div>
+
+      {profile && !profile.is_verified && (
+        <Alert>
+          <AlertDescription>
+            Your provider account is <strong>pending admin approval</strong>. You can still create packages and
+            portfolio items — they go live in Explore automatically once an admin verifies you. Packages and photos do
+            not need separate approval.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Profile Stats */}
       {profile && (

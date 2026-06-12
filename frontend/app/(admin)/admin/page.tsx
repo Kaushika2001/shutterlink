@@ -52,7 +52,12 @@ export default function AdminDashboard() {
         })
       } catch (error: any) {
         console.error('Admin dashboard load error:', error)
-        toast.error(error?.message || 'Failed to load dashboard data')
+        const msg = error?.message || 'Failed to load dashboard data'
+        if (msg.includes('Insufficient permissions')) {
+          toast.error('Admin access required. Log in with an admin account, or log out and back in after your role was changed in Supabase.')
+        } else {
+          toast.error(msg)
+        }
       } finally {
         setLoading(false)
       }

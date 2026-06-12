@@ -272,7 +272,9 @@ export default function ProviderPortfolioPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Portfolio</h1>
-          <p className="text-muted-foreground">Showcase your best work to attract customers</p>
+          <p className="text-muted-foreground">
+            Upload work anytime. Portfolio appears in Explore after admin verifies your provider account — no per-photo approval.
+          </p>
         </div>
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>

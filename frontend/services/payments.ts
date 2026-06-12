@@ -75,9 +75,12 @@ export const createPayment = async (paymentData: CreatePaymentData): Promise<Pay
   return await apiRequest<Payment>('/payments', { method: 'POST', body: JSON.stringify(paymentData) }, true);
 };
 
+export type CheckoutPaymentType = 'deposit' | 'balance';
+
 export interface CheckoutResponse {
   payment: Payment;
   amount: number;
+  payment_type?: CheckoutPaymentType;
   payment_method: string;
   mode?: 'redirect' | 'simulate';
   redirect_url?: string;
@@ -96,15 +99,46 @@ export async function getPaymentSandboxMode(): Promise<boolean> {
   }
 }
 
+export interface InPersonBalanceResponse {
+  payment: Payment;
+  amount: number;
+  payment_method: string;
+  mode: 'in_person';
+  location_address?: string;
+  service_date?: string;
+  service_time?: string;
+  message: string;
+}
+
+export const scheduleInPersonBalance = async (bookingId: string): Promise<InPersonBalanceResponse> =>
+  apiRequest<InPersonBalanceResponse>(
+    '/payments/balance/in-person',
+    { method: 'POST', body: JSON.stringify({ booking_id: bookingId }) },
+    true
+  );
+
+/** Provider confirms cash received at shoot */
+export const confirmInPersonBalance = async (bookingId: string): Promise<Payment> =>
+  apiRequest<Payment>(
+    '/payments/balance/confirm-in-person',
+    { method: 'POST', body: JSON.stringify({ booking_id: bookingId }) },
+    true
+  );
+
 export const checkoutPayment = async (
   bookingId: string,
-  paymentMethod: string
+  paymentMethod: string,
+  paymentType: CheckoutPaymentType = 'deposit'
 ): Promise<CheckoutResponse> =>
   apiRequest<CheckoutResponse>(
     '/payments/checkout',
     {
       method: 'POST',
-      body: JSON.stringify({ booking_id: bookingId, payment_method: paymentMethod }),
+      body: JSON.stringify({
+        booking_id: bookingId,
+        payment_method: paymentMethod,
+        payment_type: paymentType,
+      }),
     },
     true
   );

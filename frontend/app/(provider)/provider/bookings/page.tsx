@@ -7,16 +7,34 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { EmptyState } from "@/components/ui/empty-state"
-import { CalendarDays, MapPin, Clock, Check, X, Loader2 } from "lucide-react"
+import { CalendarDays, MapPin, Clock, Check, X, Loader2, Banknote } from "lucide-react"
 import { toast } from "sonner"
 import { getProviderBookings, confirmBooking, rejectBooking, completeBooking } from "@/services/bookings"
 import type { Booking } from "@/services/bookings"
+import { getProviderPayments, confirmInPersonBalance, type Payment } from "@/services/payments"
+
+function isBalancePayment(p: { payment_type?: string }) {
+  const t = (p.payment_type || "").toLowerCase()
+  return t === "balance" || t === "full_payment"
+}
+
+function isInPersonMethod(method?: string) {
+  const m = (method || "").toLowerCase()
+  return m === "in_person" || m === "cash" || m === "cash_at_location"
+}
+
+function getBalanceAmount(booking: Booking): number {
+  const total = Number(booking.total_price) || 0
+  const deposit = Number(booking.deposit_amount) || Math.round(total * 0.5 * 100) / 100
+  return Math.max(0, Math.round((total - deposit) * 100) / 100)
+}
 
 export default function ProviderBookingsPage() {
   const { ready, isAuthenticated } = useAuthReady()
   const [statusFilter, setStatusFilter] = useState("all")
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -27,18 +45,51 @@ export default function ProviderBookingsPage() {
   async function loadBookings() {
     if (!isAuthenticated) {
       setBookings([])
+      setPayments([])
       setLoading(false)
       return
     }
     setLoading(true)
     try {
-      const data = await getProviderBookings()
-      setBookings(data)
+      const [bookingsData, paymentsData] = await Promise.all([
+        getProviderBookings(),
+        getProviderPayments().catch(() => [] as Payment[]),
+      ])
+      setBookings(bookingsData)
+      setPayments(paymentsData)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to load bookings")
       setBookings([])
+      setPayments([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  function hasPendingInPersonBalance(bookingId: string) {
+    return payments.some(
+      (p) =>
+        p.booking_id === bookingId &&
+        p.status === "pending" &&
+        isBalancePayment(p) &&
+        isInPersonMethod(p.payment_method)
+    )
+  }
+
+  async function handleConfirmInPersonBalance(bookingId: string) {
+    setLoadingId(bookingId)
+    try {
+      await confirmInPersonBalance(bookingId)
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, balance_paid: true } : b))
+      )
+      const refreshed = await getProviderPayments().catch(() => [] as Payment[])
+      setPayments(refreshed)
+      toast.success("Balance payment confirmed")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to confirm balance")
+    } finally {
+      setLoadingId(null)
     }
   }
 
@@ -152,6 +203,23 @@ export default function ProviderBookingsPage() {
                         Mark Complete
                       </Button>
                     )}
+                    {booking.status === "completed" &&
+                      !booking.balance_paid &&
+                      hasPendingInPersonBalance(booking.id) && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleConfirmInPersonBalance(booking.id)}
+                          disabled={loadingId === booking.id}
+                          className="bg-amber-600 text-white hover:bg-amber-700"
+                        >
+                          {loadingId === booking.id ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Banknote className="mr-1 h-3 w-3" />
+                          )}
+                          Confirm balance received (LKR {getBalanceAmount(booking).toLocaleString()})
+                        </Button>
+                      )}
                   </div>
                 </div>
               </CardContent>

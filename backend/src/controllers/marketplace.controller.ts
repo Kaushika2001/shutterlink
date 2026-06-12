@@ -26,7 +26,7 @@ export class MarketplaceController {
   }
 
   async getPackageById(req: Request, res: Response) {
-    const data = await marketplaceService.getPackageById(req.params.id);
+    const data = await marketplaceService.getPackageById(req.params.id, { publicOnly: true });
     res.json({ success: true, data });
   }
 

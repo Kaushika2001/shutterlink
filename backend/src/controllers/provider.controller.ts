@@ -32,6 +32,10 @@ export class ProviderController {
     try {
       const { providerId } = req.params;
       const provider = await providerService.getProviderById(providerId);
+      if (!provider.is_verified) {
+        res.status(404).json({ success: false, error: 'Provider not found' });
+        return;
+      }
       res.status(200).json({ success: true, data: provider });
     } catch (error: any) {
       res.status(error.statusCode || 500).json({ success: false, error: error.message });

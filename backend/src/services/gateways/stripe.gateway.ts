@@ -36,6 +36,7 @@ export async function createStripeCheckout(
   const currency = (params.currency || 'lkr').toLowerCase();
   const unitAmount = Math.max(1, Math.round(Number(params.amount) * 100));
 
+  const isBalance = params.paymentType === 'balance';
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
@@ -45,8 +46,10 @@ export async function createStripeCheckout(
           currency,
           unit_amount: unitAmount,
           product_data: {
-            name: 'ShutterLink booking deposit',
-            description: `Booking ${params.bookingId}`,
+            name: isBalance ? 'ShutterLink booking balance' : 'ShutterLink booking deposit',
+            description: isBalance
+              ? `Balance after shoot — booking ${params.bookingId}`
+              : `Deposit — booking ${params.bookingId}`,
           },
         },
         quantity: 1,
@@ -55,6 +58,7 @@ export async function createStripeCheckout(
     metadata: {
       payment_id: params.paymentId,
       booking_id: params.bookingId,
+      payment_type: params.paymentType || 'deposit',
     },
     success_url: `${config.PAYMENT_RETURN_URL}?gateway=stripe&payment_id=${params.paymentId}&session_id={CHECKOUT_SESSION_ID}&status=return`,
     cancel_url: `${config.PAYMENT_RETURN_URL}?gateway=stripe&payment_id=${params.paymentId}&status=cancel`,

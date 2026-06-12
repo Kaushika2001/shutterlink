@@ -1,5 +1,20 @@
 # Backend deployment
 
+## VPS (Ubuntu + PM2 + Nginx) **← own server**
+
+See [../docs/DEPLOY_VPS.md](../docs/DEPLOY_VPS.md)
+
+Quick start on the server:
+
+```bash
+cd backend
+cp .env.example .env   # edit with production values
+npm ci && npm run build && npm run check:env
+pm2 start ecosystem.config.cjs
+```
+
+Updates: `bash scripts/deploy-vps.sh`
+
 ## Vercel serverless (separate project, e.g. shutterlink-two)
 
 See [../docs/DEPLOY_VERCEL_SERVERLESS.md](../docs/DEPLOY_VERCEL_SERVERLESS.md)

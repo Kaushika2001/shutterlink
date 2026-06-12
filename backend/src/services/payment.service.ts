@@ -13,18 +13,33 @@ import {
 
 const PLATFORM_FEE_RATE = 0.1;
 
+export type CheckoutPaymentType = 'deposit' | 'balance';
+
 type PaymentInsertInput = {
   booking_id: string;
   customer_id: string;
   provider_id: string;
   amount: number;
   payment_method?: string;
+  payment_type?: CheckoutPaymentType;
   platform_fee?: number;
   provider_amount?: number;
   status?: string;
   transaction_id?: string | null;
   paid_at?: string | null;
 };
+
+function normalizePaymentType(value: unknown): CheckoutPaymentType {
+  const t = String(value || 'deposit').toLowerCase();
+  if (t === 'balance' || t === 'full_payment') return 'balance';
+  return 'deposit';
+}
+
+function getBalanceAmount(booking: { total_price: number; deposit_amount?: number }): number {
+  const total = Number(booking.total_price) || 0;
+  const deposit = Number(booking.deposit_amount) || Math.round(total * 0.5 * 100) / 100;
+  return Math.max(0, Math.round((total - deposit) * 100) / 100);
+}
 
 export class PaymentService {
   /** Insert with progressively smaller payloads when optional columns are missing */
@@ -38,6 +53,7 @@ export class PaymentService {
         platform_fee: base.platform_fee,
         provider_amount: base.provider_amount,
         payment_method: base.payment_method,
+        payment_type: base.payment_type || 'deposit',
         status: base.status || 'pending',
         transaction_id: base.transaction_id ?? null,
         paid_at: base.paid_at ?? null,
@@ -87,6 +103,32 @@ export class PaymentService {
       );
     }
     throw new ValidationError(lastError?.message || 'Failed to create payment');
+  }
+
+  private async hasCompletedPayment(bookingId: string, paymentType: CheckoutPaymentType): Promise<boolean> {
+    const { data, error } = await supabaseAdmin
+      .from('payments')
+      .select('status, payment_type')
+      .eq('booking_id', bookingId)
+      .eq('status', 'completed');
+
+    if (error) return false;
+    return (data || []).some((p) => normalizePaymentType(p.payment_type) === paymentType);
+  }
+
+  private async findPendingPayment(
+    bookingId: string,
+    paymentType: CheckoutPaymentType
+  ): Promise<{ id: string } | null> {
+    const { data, error } = await supabaseAdmin
+      .from('payments')
+      .select('id, payment_type')
+      .eq('booking_id', bookingId)
+      .eq('status', 'pending');
+
+    if (error || !data?.length) return null;
+    const match = data.find((p) => normalizePaymentType(p.payment_type) === paymentType);
+    return match ? { id: match.id } : null;
   }
 
   private async updatePaymentRecord(
@@ -317,7 +359,12 @@ export class PaymentService {
     return this.enrichProviderPayments(data || []);
   }
 
-  async checkout(userId: string, bookingId: string, paymentMethod: string) {
+  async checkout(
+    userId: string,
+    bookingId: string,
+    paymentMethod: string,
+    paymentType: CheckoutPaymentType = 'deposit'
+  ) {
     const booking = await bookingService.getBookingById(bookingId);
 
     if (booking.customer_id !== userId) {
@@ -328,24 +375,54 @@ export class PaymentService {
       throw new ValidationError('Cannot pay for a cancelled booking');
     }
 
-    if (booking.deposit_paid) {
-      throw new ValidationError('Booking is already paid');
+    const type = normalizePaymentType(paymentType);
+    let amount: number;
+
+    if (type === 'deposit') {
+      if (booking.deposit_paid || (await this.hasCompletedPayment(bookingId, 'deposit'))) {
+        throw new ValidationError('Deposit is already paid for this booking');
+      }
+      if (!['pending', 'confirmed'].includes(booking.status)) {
+        throw new ValidationError('Deposit can only be paid for active bookings');
+      }
+      amount = Number(booking.deposit_amount) || Math.round(Number(booking.total_price) * 0.5 * 100) / 100;
+    } else {
+      if (!booking.deposit_paid && !(await this.hasCompletedPayment(bookingId, 'deposit'))) {
+        throw new ValidationError('Pay the deposit before paying the balance');
+      }
+      if (booking.status !== 'completed') {
+        throw new ValidationError('Balance payment is available after the provider marks the shoot complete');
+      }
+      if (booking.balance_paid || (await this.hasCompletedPayment(bookingId, 'balance'))) {
+        throw new ValidationError('Balance is already paid for this booking');
+      }
+      amount = getBalanceAmount(booking);
+      if (amount <= 0) {
+        throw new ValidationError('No balance due on this booking');
+      }
     }
 
-    const amount = booking.deposit_amount || booking.total_price;
     const platformFee = Math.round(amount * PLATFORM_FEE_RATE * 100) / 100;
     const providerAmount = Math.round((amount - platformFee) * 100) / 100;
 
-    const { data: existing } = await supabaseAdmin
-      .from('payments')
-      .select('id')
-      .eq('booking_id', bookingId)
-      .eq('status', 'pending')
-      .maybeSingle();
+    const existing = await this.findPendingPayment(bookingId, type);
 
     if (existing) {
-      const gateway = await this.attachGatewayCheckout(existing, booking, userId, paymentMethod, amount);
-      return { payment: existing, amount, payment_method: paymentMethod, ...gateway };
+      const gateway = await this.attachGatewayCheckout(
+        existing,
+        booking,
+        userId,
+        paymentMethod,
+        amount,
+        type
+      );
+      return {
+        payment: existing,
+        amount,
+        payment_type: type,
+        payment_method: paymentMethod,
+        ...gateway,
+      };
     }
 
     const payment = await this.insertPaymentRecord({
@@ -356,6 +433,7 @@ export class PaymentService {
       platform_fee: platformFee,
       provider_amount: providerAmount,
       payment_method: paymentMethod,
+      payment_type: type,
       status: 'pending',
     });
 
@@ -364,11 +442,18 @@ export class PaymentService {
       action: 'payment_checkout',
       entityType: 'payment',
       entityId: payment.id,
-      details: { booking_id: bookingId, method: paymentMethod, amount },
+      details: { booking_id: bookingId, method: paymentMethod, amount, payment_type: type },
     });
 
-    const gateway = await this.attachGatewayCheckout(payment, booking, userId, paymentMethod, amount);
-    return { payment, amount, payment_method: paymentMethod, ...gateway };
+    const gateway = await this.attachGatewayCheckout(
+      payment,
+      booking,
+      userId,
+      paymentMethod,
+      amount,
+      type
+    );
+    return { payment, amount, payment_type: type, payment_method: paymentMethod, ...gateway };
   }
 
   private async attachGatewayCheckout(
@@ -376,7 +461,8 @@ export class PaymentService {
     booking: any,
     userId: string,
     paymentMethod: string,
-    amount: number
+    amount: number,
+    paymentType: CheckoutPaymentType = 'deposit'
   ) {
     const { data: user } = await supabaseAdmin
       .from('users')
@@ -390,6 +476,7 @@ export class PaymentService {
       bookingId: booking.id,
       amount,
       currency: 'LKR',
+      paymentType,
       customerEmail: user?.email,
       customerPhone: user?.phone,
       customerFirstName: nameParts[0],
@@ -482,34 +569,54 @@ export class PaymentService {
       }
     );
 
-    // Mark deposit paid; provider accepts pending booking → confirmed
-    await bookingService.updateBooking(payment.booking_id, {
-      deposit_paid: true,
-    });
+    const paymentType = normalizePaymentType(payment.payment_type);
+    const bookingUpdates =
+      paymentType === 'balance'
+        ? { balance_paid: true }
+        : { deposit_paid: true };
+
+    try {
+      await bookingService.updateBooking(payment.booking_id, bookingUpdates);
+    } catch {
+      /* balance_paid column may be missing — infer from payments table */
+    }
 
     await auditService.log({
       userId,
       action: 'payment_completed',
       entityType: 'payment',
       entityId: paymentId,
-      details: { booking_id: payment.booking_id, transaction_id: transactionRef, source },
+      details: {
+        booking_id: payment.booking_id,
+        transaction_id: transactionRef,
+        source,
+        payment_type: paymentType,
+      },
     });
 
     try {
       const booking = await bookingService.getBookingById(payment.booking_id);
+      const label = paymentType === 'balance' ? 'Balance' : 'Deposit';
+      const methodLabel =
+        paymentMethod === 'in_person' ? 'in person at shoot' : paymentMethod;
       await notificationService.createNotification({
         user_id: booking.provider_id,
         type: 'payment_received',
-        title: 'Payment received',
-        message: `Booking ${booking.booking_number} paid via ${paymentMethod}`,
-        data: { booking_id: booking.id, payment_id: paymentId },
+        title: `${label} payment received`,
+        message: `${label} paid for booking ${booking.booking_number} via ${methodLabel}`,
+        data: { booking_id: booking.id, payment_id: paymentId, payment_type: paymentType },
       });
       await notificationService.createNotification({
         user_id: booking.customer_id,
         type: 'payment_received',
-        title: 'Payment received',
-        message: `Deposit paid for booking ${booking.booking_number}. Awaiting provider confirmation.`,
-        data: { booking_id: booking.id },
+        title: `${label} payment confirmed`,
+        message:
+          paymentType === 'balance'
+            ? paymentMethod === 'in_person'
+              ? `Balance confirmed for booking ${booking.booking_number} (paid at shoot).`
+              : `Thank you — balance paid for booking ${booking.booking_number}.`
+            : `Deposit paid for booking ${booking.booking_number}. Awaiting provider confirmation.`,
+        data: { booking_id: booking.id, payment_type: paymentType },
       });
     } catch {
       /* optional */
@@ -642,6 +749,165 @@ export class PaymentService {
       transaction_id: data.transaction_ref || null,
       paid_at: data.status === 'completed' ? new Date().toISOString() : null,
     });
+  }
+
+  private isInPersonMethod(method: unknown): boolean {
+    const m = String(method || '').toLowerCase();
+    return m === 'in_person' || m === 'cash' || m === 'cash_at_location';
+  }
+
+  private async validateBalancePaymentEligibility(bookingId: string, customerId: string) {
+    const booking = await bookingService.getBookingById(bookingId);
+
+    if (booking.customer_id !== customerId) {
+      throw new AuthorizationError('Not your booking');
+    }
+    if (booking.status !== 'completed') {
+      throw new ValidationError('Balance payment is available after the shoot is marked complete');
+    }
+    if (!booking.deposit_paid && !(await this.hasCompletedPayment(bookingId, 'deposit'))) {
+      throw new ValidationError('Pay the deposit before scheduling balance payment');
+    }
+    if (booking.balance_paid || (await this.hasCompletedPayment(bookingId, 'balance'))) {
+      throw new ValidationError('Balance is already paid for this booking');
+    }
+
+    const amount = getBalanceAmount(booking);
+    if (amount <= 0) {
+      throw new ValidationError('No balance due on this booking');
+    }
+
+    return { booking, amount };
+  }
+
+  private async findPendingInPersonBalance(bookingId: string) {
+    const { data, error } = await supabaseAdmin
+      .from('payments')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .eq('status', 'pending');
+
+    if (error) return null;
+    return (
+      (data || []).find(
+        (p) =>
+          normalizePaymentType(p.payment_type) === 'balance' &&
+          this.isInPersonMethod(p.payment_method || p.method)
+      ) || null
+    );
+  }
+
+  /** Customer chooses to pay balance in cash at the shoot location */
+  async scheduleInPersonBalance(userId: string, bookingId: string) {
+    const { booking, amount } = await this.validateBalancePaymentEligibility(bookingId, userId);
+
+    const existingOnline = await this.findPendingPayment(bookingId, 'balance');
+    if (existingOnline) {
+      const { data: full } = await supabaseAdmin
+        .from('payments')
+        .select('*')
+        .eq('id', existingOnline.id)
+        .maybeSingle();
+      if (full && !this.isInPersonMethod(full.payment_method || full.method)) {
+        throw new ValidationError('You already started an online balance payment for this booking');
+      }
+    }
+
+    const existingInPerson = await this.findPendingInPersonBalance(bookingId);
+    if (existingInPerson) {
+      return {
+        payment: existingInPerson,
+        amount,
+        payment_type: 'balance' as CheckoutPaymentType,
+        payment_method: 'in_person',
+        mode: 'in_person' as const,
+        location_address: booking.location_address,
+        service_date: booking.service_date,
+        service_time: booking.service_time,
+        message: 'Balance will be collected at the shoot location. Your provider will confirm receipt.',
+      };
+    }
+
+    const platformFee = Math.round(amount * PLATFORM_FEE_RATE * 100) / 100;
+    const providerAmount = Math.round((amount - platformFee) * 100) / 100;
+
+    const payment = await this.insertPaymentRecord({
+      booking_id: bookingId,
+      customer_id: userId,
+      provider_id: booking.provider_id,
+      amount,
+      platform_fee: platformFee,
+      provider_amount: providerAmount,
+      payment_method: 'in_person',
+      payment_type: 'balance',
+      status: 'pending',
+    });
+
+    await auditService.log({
+      userId,
+      action: 'balance_in_person_scheduled',
+      entityType: 'payment',
+      entityId: payment.id,
+      details: { booking_id: bookingId, amount },
+    });
+
+    try {
+      const location = booking.location_address || booking.location_type || 'shoot location';
+      await notificationService.createNotification({
+        user_id: booking.provider_id,
+        type: 'payment_due',
+        title: 'In-person balance payment',
+        message: `Customer will pay LKR ${amount.toLocaleString()} at the shoot (${location}). Confirm when received.`,
+        data: { booking_id: booking.id, payment_id: payment.id, payment_method: 'in_person' },
+      });
+      await notificationService.createNotification({
+        user_id: booking.customer_id,
+        type: 'payment_due',
+        title: 'Pay balance at shoot',
+        message: `Pay LKR ${amount.toLocaleString()} to your provider on ${booking.service_date} at ${location}.`,
+        data: { booking_id: booking.id, payment_id: payment.id },
+      });
+    } catch {
+      /* optional */
+    }
+
+    return {
+      payment,
+      amount,
+      payment_type: 'balance' as CheckoutPaymentType,
+      payment_method: 'in_person',
+      mode: 'in_person' as const,
+      location_address: booking.location_address,
+      service_date: booking.service_date,
+      service_time: booking.service_time,
+      message: 'Balance will be collected at the shoot location. Your provider will confirm receipt.',
+    };
+  }
+
+  /** Provider confirms cash/balance received on site */
+  async confirmInPersonBalance(providerUserId: string, bookingId: string) {
+    const booking = await bookingService.getBookingById(bookingId);
+
+    if (booking.provider_id !== providerUserId) {
+      throw new AuthorizationError('Not your booking');
+    }
+    if (booking.status !== 'completed') {
+      throw new ValidationError('Shoot must be marked complete before confirming balance');
+    }
+
+    const pending = await this.findPendingInPersonBalance(bookingId);
+    if (!pending) {
+      throw new ValidationError('No in-person balance payment is scheduled for this booking');
+    }
+
+    const transactionRef = `INPERSON-${booking.booking_number || bookingId}-${Date.now()}`;
+    return this.finalizePayment(
+      pending.id,
+      'in_person',
+      transactionRef,
+      'manual',
+      providerUserId
+    );
   }
 
   async getPaymentStats(userId: string, isProvider: boolean) {

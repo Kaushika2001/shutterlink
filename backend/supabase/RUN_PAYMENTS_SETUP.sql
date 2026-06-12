@@ -7,6 +7,8 @@ ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) 
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS provider_amount DECIMAL(10,2);
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) DEFAULT 'deposit';
+
+ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS balance_paid BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS payment_gateway_id VARCHAR(255);
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255);
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP WITH TIME ZONE;

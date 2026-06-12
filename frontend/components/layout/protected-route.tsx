@@ -25,7 +25,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
         provider: "/provider",
         admin: "/admin",
       }
-      router.push(redirectMap[user.role])
+      router.replace(redirectMap[user.role])
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, router])
 

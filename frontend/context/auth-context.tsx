@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import type { User, UserRole } from "@/types"
 import * as authService from "@/services/auth"
+import { tokenStorage } from "@/lib/api"
 
 interface AuthContextType {
   user: User | null
@@ -31,11 +32,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load user from backend token on mount
+  // Load user and refresh JWT so API role matches database (e.g. admin promotion)
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const userData = await authService.getCurrentUser()
+        const token = tokenStorage.get()
+        let userData = null
+        if (token) {
+          try {
+            userData = await authService.refreshSession()
+          } catch {
+            userData = await authService.getCurrentUser()
+          }
+        }
         if (userData) {
           setUser({
             id: userData.id,
